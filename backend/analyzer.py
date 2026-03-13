@@ -64,9 +64,13 @@ Return a JSON object with exactly these fields:
                 model=settings.claude_model,
                 max_tokens=1024,
                 system=SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": user_prompt}],
+                messages=[
+                    {"role": "user", "content": user_prompt},
+                    {"role": "assistant", "content": "{"},  # prefill forces raw JSON
+                ],
             )
-            raw = response.content[0].text.strip()
+            # Prepend the prefill "{" we used to force raw JSON output
+            raw = "{" + response.content[0].text.strip()
             data = json.loads(raw)
             return AnalysisResult(
                 overall_sentiment=data["overall_sentiment"],
