@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -134,8 +134,26 @@ async def start_monitoring(body: StartRequest):
         t.cancel()
     _tasks.clear()
 
-    video_id = extract_video_id(body.video_url)
-    live_chat_id = await resolve_live_chat_id(video_id, settings.youtube_api_key)
+    try:
+        video_id = extract_video_id(body.video_url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    try:
+        live_chat_id = await resolve_live_chat_id(video_id, settings.youtube_api_key)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 403:
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    "YouTube API returned 403 Forbidden. "
+                    "Make sure the YouTube Data API v3 is enabled in your Google Cloud project "
+                    "and that your API key has no restrictive settings blocking server requests."
+                ),
+            )
+        raise HTTPException(status_code=502, detail=f"YouTube API error: {e.response.status_code}")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     poller = YouTubeChatPoller(live_chat_id, settings.youtube_api_key)
 
