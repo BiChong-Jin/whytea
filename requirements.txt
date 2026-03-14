@@ -5,5 +5,5 @@ anthropic
 python-dotenv
 pydantic
 pydantic-settings
-python-jose
-passlib
+python-jose[cryptography]
+passlib[bcrypt]
