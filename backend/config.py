@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     analysis_interval_seconds: int = 30
     max_comments_per_batch: int = 200
     claude_model: str = "claude-haiku-4-5-20251001"
+    jwt_secret_key: str
 
     class Config:
         env_file = ".env"

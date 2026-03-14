@@ -14,8 +14,8 @@ from .analyzer import ChatAnalyzer
 from .models import WSMessage
 from .youtube import YouTubeChatPoller, extract_video_id, resolve_live_chat_id
 
-
 # ── WebSocket connection manager ────────────────────────────────────────────
+
 
 class ConnectionManager:
     def __init__(self) -> None:
@@ -48,6 +48,7 @@ _tasks: list[asyncio.Task] = []
 
 
 # ── Background tasks ────────────────────────────────────────────────────────
+
 
 async def polling_loop(poller: YouTubeChatPoller) -> None:
     while True:
@@ -89,8 +90,13 @@ async def analysis_loop(interval_seconds: int) -> None:
 
 # ── App lifecycle ────────────────────────────────────────────────────────────
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from .database import engine
+    from .models_db import Base
+
+    Base.metadata.create_all(bind=engine)
     yield
     for t in _tasks:
         t.cancel()
@@ -112,6 +118,7 @@ if frontend_dir.exists():
 
 
 # ── HTTP endpoints ───────────────────────────────────────────────────────────
+
 
 class StartRequest(BaseModel):
     video_url: str
@@ -151,14 +158,18 @@ async def start_monitoring(body: StartRequest):
                     "and that your API key has no restrictive settings blocking server requests."
                 ),
             )
-        raise HTTPException(status_code=502, detail=f"YouTube API error: {e.response.status_code}")
+        raise HTTPException(
+            status_code=502, detail=f"YouTube API error: {e.response.status_code}"
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
     poller = YouTubeChatPoller(live_chat_id, settings.youtube_api_key)
 
     _tasks.append(asyncio.create_task(polling_loop(poller)))
-    _tasks.append(asyncio.create_task(analysis_loop(settings.analysis_interval_seconds)))
+    _tasks.append(
+        asyncio.create_task(analysis_loop(settings.analysis_interval_seconds))
+    )
 
     await manager.broadcast(
         WSMessage(
@@ -176,7 +187,9 @@ async def stop_monitoring():
         t.cancel()
     _tasks.clear()
     await manager.broadcast(
-        WSMessage(type="status", payload={"state": "idle", "message": "Monitoring stopped."})
+        WSMessage(
+            type="status", payload={"state": "idle", "message": "Monitoring stopped."}
+        )
     )
     return {"status": "stopped"}
 
@@ -191,6 +204,7 @@ async def get_status():
 
 
 # ── WebSocket ────────────────────────────────────────────────────────────────
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):

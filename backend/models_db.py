@@ -12,4 +12,4 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_name = Column(String, unique=True, nullable=False, index=True)
     hashed_password = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow())
+    created_at = Column(DateTime, default=datetime.utcnow)
