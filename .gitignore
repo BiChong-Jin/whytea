@@ -8,3 +8,4 @@ venv/
 .DS_Store
 *.db
 .claude/
+claude_interaction_note.md
