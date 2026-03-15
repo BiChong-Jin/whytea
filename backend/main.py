@@ -7,6 +7,7 @@ import httpx
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+from fastapi.security import OAuth2PasswordBearer
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -14,7 +15,7 @@ from sqlalchemy.orm import Session
 from backend.models_db import User
 
 from .analyzer import ChatAnalyzer
-from .auth import create_token, create_user, get_user, verify_password
+from .auth import create_token, create_user, decode_token, get_user, verify_password
 from .database import get_db
 from .models import WSMessage
 from .youtube import YouTubeChatPoller, extract_video_id, resolve_live_chat_id
@@ -139,9 +140,39 @@ class LoginRequest(BaseModel):
     user_password: str
 
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+
+def get_current_user(
+    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+):
+    # call decode_token(token) to get the username
+    # if it returns None, raise HTTPException 401 with detail "invalid or expired token"
+    # call get_user(db, username) to get the user from db
+    # if user not found, raise HTTPException 401
+    # return the user
+    user_name = decode_token(token)
+
+    if user_name is None:
+        raise HTTPException(status_code=401, detail="invalid or expired token")
+
+    user = get_user(db, user_name)
+
+    if user is None:
+        raise HTTPException(status_code=401, detail="user not found")
+
+    return user
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index():
     html_path = Path(__file__).parent.parent / "frontend" / "index.html"
+    return HTMLResponse(html_path.read_text())
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page():
+    html_path = Path(__file__).parent.parent / "frontend" / "login.html"
     return HTMLResponse(html_path.read_text())
 
 
@@ -154,7 +185,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         db=db, username=body.user_name, password=body.user_password
     )
     if new_user is None:
-        raise HTTPException(status_code=404, detail="the username is taken.")
+        raise HTTPException(status_code=400, detail="the username is taken.")
     else:
         return {"message": "registered successfully"}
 
@@ -181,7 +212,7 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
 
 
 @app.post("/start")
-async def start_monitoring(body: StartRequest):
+async def start_monitoring(body: StartRequest, current_user=Depends(get_current_user)):
     from .config import settings
 
     global _tasks
@@ -232,7 +263,7 @@ async def start_monitoring(body: StartRequest):
 
 
 @app.post("/stop")
-async def stop_monitoring():
+async def stop_monitoring(current_user=Depends(get_current_user)):
     for t in _tasks:
         t.cancel()
     _tasks.clear()
@@ -257,10 +288,18 @@ async def get_status():
 
 
 @app.websocket("/ws")
-async def websocket_endpoint(ws: WebSocket):
+async def websocket_endpoint(ws: WebSocket, token: str | None = None):
+    if not token:
+        await ws.close(code=4001)
+        return
+    username = decode_token(token)
+    if not username:
+        await ws.close(code=4001)
+        return
+
     await manager.connect(ws)
     try:
         while True:
-            await ws.receive_text()  # keep connection alive; we only push from server
+            await ws.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(ws)

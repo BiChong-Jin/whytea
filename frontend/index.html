@@ -4,206 +4,387 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Stream Audience Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0e0e10;
-      --surface: #1a1a1f;
-      --border: #2a2a32;
-      --text: #efeff1;
-      --muted: #848494;
-      --accent: #9147ff;
-      --positive: #00c853;
-      --neutral: #ffab00;
-      --negative: #f44336;
-      --mixed: #2196f3;
-      --superchat: #ffd600;
+      --bg-base:        #111113;
+      --bg-subtle:      #18191b;
+      --bg-element:     #212225;
+      --bg-hover:       #272a2d;
+      --border-subtle:  rgba(255,255,255,0.06);
+      --border-default: rgba(255,255,255,0.10);
+      --border-strong:  rgba(255,255,255,0.16);
+      --text-primary:   #edeef0;
+      --text-secondary: #b0b4ba;
+      --text-muted:     #696e77;
+      --accent:         #6e56cf;
+      --accent-glow:    rgba(110,86,207,0.2);
+      --accent-soft:    #291f43;
+      --red:            #e5484d;
+      --red-soft:       #500f1c;
+      --green:          #30a46c;
+      --green-soft:     #113b29;
+      --amber:          #ffc53d;
+      --amber-soft:     #3f2700;
+      --cyan:           #00a2c7;
+      --cyan-soft:      #003848;
+      --blue:           #3b82f6;
+      --blue-soft:      #1e3a5f;
+      --font-sans:      'Inter', -apple-system, sans-serif;
+      --font-mono:      'JetBrains Mono', monospace;
     }
+
+    html, body { height: 100%; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      height: 100vh;
+      font-family: var(--font-sans);
+      background: var(--bg-base);
+      color: var(--text-primary);
       display: grid;
-      grid-template-rows: auto 1fr;
+      grid-template-rows: 56px 1fr;
+      overflow: hidden;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(110,86,207,0.10) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 40% at 85% 90%, rgba(0,162,199,0.06) 0%, transparent 60%);
     }
 
-    /* ── Header ── */
+    /* ── Topbar ── */
     header {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 12px 20px;
       display: flex;
       align-items: center;
       gap: 12px;
-      flex-wrap: wrap;
+      padding: 0 24px;
+      background: rgba(24,25,27,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-subtle);
+      position: relative;
+      z-index: 10;
     }
 
-    header h1 {
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--accent);
-      white-space: nowrap;
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+
+    .logo-icon {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--accent), #9b7df8);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+
+    .logo-text {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+
+    .header-divider {
+      width: 1px; height: 20px;
+      background: var(--border-default);
+      flex-shrink: 0;
     }
 
     #url-input {
       flex: 1;
-      min-width: 260px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
+      min-width: 200px;
+      max-width: 420px;
+      background: var(--bg-element);
+      border: 1px solid var(--border-default);
+      border-radius: 8px;
+      color: var(--text-primary);
       padding: 7px 12px;
       font-size: 13px;
+      font-family: var(--font-sans);
       outline: none;
+      transition: border-color .15s, box-shadow .15s;
     }
-    #url-input:focus { border-color: var(--accent); }
+    #url-input::placeholder { color: var(--text-muted); }
+    #url-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
 
-    button {
+    .btn {
       padding: 7px 16px;
-      border-radius: 6px;
+      border-radius: 8px;
       border: none;
       font-size: 13px;
       font-weight: 600;
+      font-family: var(--font-sans);
       cursor: pointer;
-      transition: opacity .15s;
+      transition: opacity .15s, transform .1s;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
-    button:hover { opacity: .85; }
+    .btn:hover  { opacity: .88; }
+    .btn:active { transform: scale(.97); }
 
-    #btn-start { background: var(--accent); color: #fff; }
-    #btn-stop  { background: #333; color: var(--text); }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-ghost   { background: var(--bg-element); border: 1px solid var(--border-default); color: var(--text-secondary); }
 
     #status-badge {
-      font-size: 12px;
+      font-size: 11px;
+      font-weight: 600;
       padding: 4px 10px;
-      border-radius: 20px;
-      background: #333;
-      color: var(--muted);
+      border-radius: 9999px;
+      background: var(--bg-element);
+      color: var(--text-muted);
+      border: 1px solid var(--border-default);
+      letter-spacing: 0.03em;
       white-space: nowrap;
+      display: flex; align-items: center; gap: 6px;
     }
-    #status-badge.monitoring { background: #1b3a1b; color: var(--positive); }
-    #status-badge.error      { background: #3a1b1b; color: var(--negative); }
+    #status-badge.monitoring { background: var(--green-soft); color: var(--green); border-color: rgba(48,164,108,0.3); }
+    #status-badge.error      { background: var(--red-soft);   color: var(--red);   border-color: rgba(229,72,77,0.3); }
+
+    .live-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      display: none;
+      flex-shrink: 0;
+    }
+    #status-badge.monitoring .live-dot {
+      display: block;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(48,164,108,0.5); }
+      50%      { box-shadow: 0 0 0 5px rgba(48,164,108,0); }
+    }
+
+    .header-right {
+      display: flex; align-items: center; gap: 10px;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+
+    .user-avatar {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), #9b7df8);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    #username-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
 
     /* ── Main layout ── */
     main {
       display: grid;
-      grid-template-columns: 340px 1fr;
+      grid-template-columns: 1fr 320px;
       overflow: hidden;
     }
 
-    /* ── Comment feed ── */
-    #feed-panel {
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .panel-title {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      color: var(--muted);
-      padding: 10px 14px 8px;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-
-    #comment-list {
-      flex: 1;
-      overflow-y: auto;
-      padding: 6px 0;
-    }
-
-    .comment {
-      padding: 6px 14px;
-      border-bottom: 1px solid var(--border);
-      animation: fadeIn .2s ease;
-    }
-    .comment.superchat {
-      background: rgba(255, 214, 0, .08);
-      border-left: 3px solid var(--superchat);
-    }
-
-    .comment-author {
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--accent);
-      margin-bottom: 2px;
-    }
-    .comment.superchat .comment-author { color: var(--superchat); }
-
-    .comment-amount {
-      font-size: 10px;
-      color: var(--superchat);
-      font-weight: 700;
-      margin-bottom: 2px;
-    }
-
-    .comment-text {
-      font-size: 12px;
-      color: var(--text);
-      line-height: 1.4;
-      word-break: break-word;
-    }
-
-    #empty-feed {
-      text-align: center;
-      color: var(--muted);
-      font-size: 13px;
-      padding: 40px 20px;
-    }
-
-    /* ── Analysis panel ── */
+    /* ── Analysis panel (left) ── */
     #analysis-panel {
       display: flex;
       flex-direction: column;
       overflow-y: auto;
-      padding: 20px 28px;
-      gap: 24px;
+      padding: 24px 28px;
+      gap: 20px;
+      border-right: 1px solid var(--border-subtle);
     }
 
-    /* Mood gauge */
-    #gauge-wrap {
+    /* KPI row */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .kpi-card {
+      background: var(--bg-element);
+      border: 1px solid var(--border-default);
+      border-radius: 12px;
+      padding: 16px 18px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color .2s, box-shadow .2s;
+      animation: card-in .3s ease-out backwards;
+    }
+    .kpi-card::before {
+      content: '';
+      position: absolute; inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .kpi-card:hover {
+      border-color: var(--border-strong);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    }
+    .kpi-card:nth-child(1) { animation-delay: 0ms; }
+    .kpi-card:nth-child(2) { animation-delay: 60ms; }
+    .kpi-card:nth-child(3) { animation-delay: 120ms; }
+
+    .kpi-card.accent-violet {
+      background: linear-gradient(135deg, var(--accent-soft) 0%, var(--bg-element) 65%);
+      border-color: rgba(110,86,207,0.3);
+    }
+    .kpi-card.accent-green {
+      background: linear-gradient(135deg, var(--green-soft) 0%, var(--bg-element) 65%);
+      border-color: rgba(48,164,108,0.3);
+    }
+    .kpi-card.accent-red {
+      background: linear-gradient(135deg, var(--red-soft) 0%, var(--bg-element) 65%);
+      border-color: rgba(229,72,77,0.3);
+    }
+    .kpi-card.accent-amber {
+      background: linear-gradient(135deg, var(--amber-soft) 0%, var(--bg-element) 65%);
+      border-color: rgba(255,197,61,0.3);
+    }
+    .kpi-card.accent-blue {
+      background: linear-gradient(135deg, var(--blue-soft) 0%, var(--bg-element) 65%);
+      border-color: rgba(59,130,246,0.3);
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .kpi-value {
+      font-family: var(--font-mono);
+      font-size: 32px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+
+    .kpi-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    /* Mood gauge card */
+    .gauge-card {
+      background: var(--bg-element);
+      border: 1px solid var(--border-default);
+      border-radius: 12px;
+      padding: 20px 24px;
       display: flex;
-      flex-direction: column;
       align-items: center;
-      gap: 8px;
+      gap: 28px;
+      position: relative;
+      overflow: hidden;
+      animation: card-in .3s ease-out .18s backwards;
+    }
+    .gauge-card::before {
+      content: '';
+      position: absolute; inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 55%);
+      pointer-events: none;
+    }
+    .gauge-card::after {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(110,86,207,0.5), transparent);
     }
 
-    #gauge-svg { width: 200px; height: 110px; }
+    #gauge-svg { width: 160px; height: 90px; flex-shrink: 0; }
 
-    #mood-score-label {
-      font-size: 36px;
-      font-weight: 800;
-      color: var(--text);
-    }
+    .gauge-meta { flex: 1; }
 
     #sentiment-badge {
-      font-size: 13px;
-      font-weight: 700;
-      padding: 4px 14px;
-      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 9999px;
       text-transform: capitalize;
-      background: #333;
-      color: var(--muted);
+      background: var(--bg-hover);
+      color: var(--text-muted);
+      border: 1px solid var(--border-default);
+      margin-bottom: 10px;
+      letter-spacing: 0.02em;
     }
-    #sentiment-badge.positive { background: #1b3a1b; color: var(--positive); }
-    #sentiment-badge.negative { background: #3a1b1b; color: var(--negative); }
-    #sentiment-badge.neutral  { background: #3a3a1b; color: var(--neutral); }
-    #sentiment-badge.mixed    { background: #1b2a3a; color: var(--mixed); }
+    #sentiment-badge.positive { background: var(--green-soft); color: var(--green); border-color: rgba(48,164,108,0.3); }
+    #sentiment-badge.negative { background: var(--red-soft);   color: var(--red);   border-color: rgba(229,72,77,0.3); }
+    #sentiment-badge.neutral  { background: var(--amber-soft); color: var(--amber); border-color: rgba(255,197,61,0.3); }
+    #sentiment-badge.mixed    { background: var(--blue-soft);  color: var(--blue);  border-color: rgba(59,130,246,0.3); }
 
-    /* Sections */
+    .gauge-score-row {
+      display: flex; align-items: baseline; gap: 6px;
+      margin-bottom: 4px;
+    }
+    #mood-score-label {
+      font-family: var(--font-mono);
+      font-size: 42px;
+      font-weight: 600;
+      letter-spacing: -0.04em;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+    .gauge-score-max {
+      font-size: 16px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+    .gauge-label {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Content row: themes + highlights + summary */
+    .content-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      animation: card-in .3s ease-out .24s backwards;
+    }
+
+    .section-card {
+      background: var(--bg-element);
+      border: 1px solid var(--border-default);
+      border-radius: 12px;
+      padding: 16px 18px;
+      position: relative;
+      overflow: hidden;
+    }
+    .section-card::before {
+      content: '';
+      position: absolute; inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 55%);
+      pointer-events: none;
+    }
+    .section-card.full-width { grid-column: 1 / -1; }
+
     .section-label {
       font-size: 11px;
-      font-weight: 700;
-      letter-spacing: .08em;
+      font-weight: 600;
+      letter-spacing: 0.07em;
       text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 8px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
     }
 
     #themes-list {
@@ -213,190 +394,344 @@
     }
 
     .theme-pill {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 20px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border-default);
+      border-radius: 9999px;
       padding: 4px 12px;
       font-size: 12px;
-      color: var(--text);
+      font-weight: 500;
+      color: var(--text-secondary);
+      transition: border-color .15s, background .15s;
+    }
+    .theme-pill:hover {
+      background: var(--accent-soft);
+      border-color: rgba(110,86,207,0.4);
+      color: #c4b5fd;
     }
 
-    #highlights-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
+    #highlights-list { display: flex; flex-direction: column; gap: 8px; }
 
     .highlight-quote {
-      background: var(--surface);
-      border-left: 3px solid var(--accent);
-      border-radius: 0 6px 6px 0;
+      background: var(--bg-hover);
+      border-left: 2px solid var(--accent);
+      border-radius: 0 8px 8px 0;
       padding: 8px 12px;
-      font-size: 13px;
+      font-size: 12px;
       font-style: italic;
-      color: var(--text);
-      line-height: 1.45;
+      color: var(--text-secondary);
+      line-height: 1.5;
     }
 
     #summary-text {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 14px 16px;
       font-size: 13px;
-      line-height: 1.6;
-      color: var(--text);
+      line-height: 1.65;
+      color: var(--text-secondary);
     }
 
     #meta-info {
       font-size: 11px;
-      color: var(--muted);
+      color: var(--text-muted);
       text-align: right;
+      margin-top: 4px;
     }
 
     #placeholder-msg {
-      color: var(--muted);
+      color: var(--text-muted);
       font-size: 14px;
       text-align: center;
       margin: auto;
+      line-height: 1.7;
+    }
+    #placeholder-msg strong { color: var(--text-secondary); }
+
+    /* ── Chat feed (right) ── */
+    #feed-panel {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg-subtle);
     }
 
-    /* Fade transition on analysis update */
-    .fade-out { opacity: 0; transition: opacity .25s; }
-    .fade-in  { opacity: 1; transition: opacity .25s; }
+    .feed-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
 
-    @keyframes fadeIn {
+    .feed-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    #comment-count-badge {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      background: var(--bg-element);
+      border: 1px solid var(--border-default);
+      border-radius: 9999px;
+      padding: 2px 8px;
+    }
+
+    #comment-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .comment {
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      animation: comment-in .18s ease-out;
+      transition: background .15s;
+    }
+    .comment:hover { background: var(--bg-element); }
+    .comment.superchat {
+      background: rgba(255,197,61,.07);
+      border-left: 2px solid var(--amber);
+      padding-left: 12px;
+    }
+    .comment.superchat:hover { background: rgba(255,197,61,.11); }
+
+    .comment-author {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 2px;
+      letter-spacing: 0.01em;
+    }
+    .comment.superchat .comment-author { color: var(--amber); }
+
+    .comment-amount {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--amber);
+      font-family: var(--font-mono);
+      margin-bottom: 2px;
+    }
+
+    .comment-text {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    #empty-feed {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+      padding: 48px 20px;
+      line-height: 1.7;
+    }
+
+    /* ── Animations ── */
+    @keyframes card-in {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes comment-in {
       from { opacity: 0; transform: translateY(-4px); }
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* Scrollbar */
-    ::-webkit-scrollbar { width: 5px; }
+    .fade-out { opacity: 0; transition: opacity .2s; }
+    .fade-in  { opacity: 1; transition: opacity .2s; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar       { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
   </style>
 </head>
 <body>
 
+<!-- ── Topbar ── -->
 <header>
-  <h1>Stream Audience Analyzer</h1>
+  <div class="logo">
+    <div class="logo-icon">📡</div>
+    <span class="logo-text">StreamPulse</span>
+  </div>
+  <div class="header-divider"></div>
   <input id="url-input" type="text" placeholder="Paste YouTube live URL or video ID…" />
-  <button id="btn-start" onclick="startMonitoring()">Start</button>
-  <button id="btn-stop"  onclick="stopMonitoring()">Stop</button>
-  <span id="status-badge">Idle</span>
+  <button class="btn btn-primary" onclick="startMonitoring()">Start</button>
+  <button class="btn btn-ghost"   onclick="stopMonitoring()">Stop</button>
+  <span id="status-badge">
+    <span class="live-dot"></span>
+    <span id="status-text">Idle</span>
+  </span>
+  <div class="header-right">
+    <div class="user-avatar" id="user-avatar"></div>
+    <span id="username-label"></span>
+    <button class="btn btn-ghost" onclick="logout()">Logout</button>
+  </div>
 </header>
 
+<!-- ── Main ── -->
 <main>
-  <!-- Comment feed -->
+
+  <!-- Left: analysis -->
+  <div id="analysis-panel">
+
+    <div id="placeholder-msg">
+      Paste a YouTube live URL above and click <strong>Start</strong>.<br>
+      AI overview refreshes every 30 seconds.
+    </div>
+
+    <div id="analysis-content" style="display:none;flex-direction:column;gap:20px;">
+
+      <!-- KPI row -->
+      <div class="kpi-grid">
+        <div class="kpi-card accent-violet">
+          <div class="kpi-label">Mood Score</div>
+          <div class="kpi-value" id="kpi-mood">--</div>
+          <div class="kpi-sub">out of 100</div>
+        </div>
+        <div class="kpi-card accent-green">
+          <div class="kpi-label">Comments</div>
+          <div class="kpi-value" id="kpi-comments">--</div>
+          <div class="kpi-sub">in this window</div>
+        </div>
+        <div class="kpi-card" id="kpi-sentiment-card">
+          <div class="kpi-label">Sentiment</div>
+          <div class="kpi-value" id="kpi-sentiment" style="font-size:20px;margin-top:4px;text-transform:capitalize;">--</div>
+          <div class="kpi-sub">overall tone</div>
+        </div>
+      </div>
+
+      <!-- Gauge + sentiment -->
+      <div class="gauge-card">
+        <svg id="gauge-svg" viewBox="0 0 160 90">
+          <path d="M16,80 A64,64 0 0,1 144,80" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="12" stroke-linecap="round"/>
+          <path id="gauge-arc" d="M16,80 A64,64 0 0,1 144,80" fill="none" stroke="#6e56cf" stroke-width="12" stroke-linecap="round"
+                stroke-dasharray="201" stroke-dashoffset="201"
+                style="transition: stroke-dashoffset .6s ease, stroke .6s ease;"/>
+        </svg>
+        <div class="gauge-meta">
+          <span id="sentiment-badge">--</span>
+          <div class="gauge-score-row">
+            <span id="mood-score-label">--</span>
+            <span class="gauge-score-max">/ 100</span>
+          </div>
+          <div class="gauge-label">Audience mood score</div>
+        </div>
+      </div>
+
+      <!-- Themes + Highlights -->
+      <div class="content-row">
+        <div class="section-card">
+          <div class="section-label">Key Themes</div>
+          <div id="themes-list"></div>
+        </div>
+        <div class="section-card">
+          <div class="section-label">Highlights</div>
+          <div id="highlights-list"></div>
+        </div>
+        <div class="section-card full-width">
+          <div class="section-label">AI Summary</div>
+          <p id="summary-text"></p>
+          <div id="meta-info"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Right: chat feed -->
   <div id="feed-panel">
-    <div class="panel-title">Live Chat</div>
+    <div class="feed-header">
+      <span class="feed-title">Live Chat</span>
+      <span id="comment-count-badge">0</span>
+    </div>
     <div id="comment-list">
       <div id="empty-feed">No comments yet.<br>Start monitoring a live stream.</div>
     </div>
   </div>
 
-  <!-- Analysis panel -->
-  <div id="analysis-panel">
-    <div id="placeholder-msg">
-      Paste a YouTube live URL above and click <strong>Start</strong>.<br>
-      The AI overview will appear here every 30 seconds.
-    </div>
-
-    <!-- Hidden until first analysis -->
-    <div id="analysis-content" style="display:none; display:flex; flex-direction:column; gap:24px;">
-
-      <div id="gauge-wrap">
-        <svg id="gauge-svg" viewBox="0 0 200 110">
-          <path id="gauge-bg" d="M20,100 A80,80 0 0,1 180,100" fill="none" stroke="#2a2a32" stroke-width="16" stroke-linecap="round"/>
-          <path id="gauge-arc" d="M20,100 A80,80 0 0,1 180,100" fill="none" stroke="#9147ff" stroke-width="16" stroke-linecap="round"
-                stroke-dasharray="251.2" stroke-dashoffset="251.2"/>
-          <text id="mood-score-label" x="100" y="90" text-anchor="middle"
-                font-size="36" font-weight="800" fill="#efeff1">--</text>
-        </svg>
-        <span id="sentiment-badge">--</span>
-      </div>
-
-      <div>
-        <div class="section-label">Key Themes</div>
-        <div id="themes-list"></div>
-      </div>
-
-      <div>
-        <div class="section-label">Highlights</div>
-        <div id="highlights-list"></div>
-      </div>
-
-      <div>
-        <div class="section-label">Summary</div>
-        <p id="summary-text"></p>
-      </div>
-
-      <div id="meta-info"></div>
-    </div>
-  </div>
 </main>
 
 <script>
   let ws = null;
-  let reconnectTimer = null;
-  const MAX_COMMENTS = 200;
+  let totalComments = 0;
 
-  // ── WebSocket ──────────────────────────────────────────────────────────────
+  // ── Auth ────────────────────────────────────────────────────────────────────
+
+  const token = localStorage.getItem("token");
+  if (!token) location.href = "/login";
+
+  function getUsername() {
+    try { return JSON.parse(atob(token.split(".")[1])).sub || "User"; }
+    catch { return "User"; }
+  }
+
+  const username = getUsername();
+  document.getElementById("username-label").textContent = username;
+  document.getElementById("user-avatar").textContent = username[0].toUpperCase();
+
+  function logout() {
+    localStorage.removeItem("token");
+    location.href = "/login";
+  }
+
+  function authHeaders() {
+    return { "Content-Type": "application/json", "Authorization": `Bearer ${token}` };
+  }
+
+  // ── WebSocket ────────────────────────────────────────────────────────────────
 
   function connect() {
     if (ws && ws.readyState === WebSocket.OPEN) return;
-    ws = new WebSocket(`ws://${location.host}/ws`);
-
-    ws.onopen = () => console.log("[ws] connected");
-
-    ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data);
+    ws = new WebSocket(`ws://${location.host}/ws?token=${encodeURIComponent(token)}`);
+    ws.onopen    = () => console.log("[ws] connected");
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
       if (msg.type === "comment")  renderComment(msg.payload);
       if (msg.type === "analysis") renderAnalysis(msg.payload);
       if (msg.type === "status")   updateStatus(msg.payload);
       if (msg.type === "error")    showError(msg.payload);
     };
-
-    ws.onclose = () => {
-      console.log("[ws] disconnected — retrying in 3s");
-      reconnectTimer = setTimeout(connect, 3000);
+    ws.onclose = (e) => {
+      if (e.code === 4001) { logout(); return; }
+      setTimeout(connect, 3000);
     };
   }
 
-  // ── API calls ──────────────────────────────────────────────────────────────
+  // ── API calls ────────────────────────────────────────────────────────────────
 
   async function startMonitoring() {
     const url = document.getElementById("url-input").value.trim();
     if (!url) { alert("Please enter a YouTube live URL or video ID."); return; }
     try {
       const res = await fetch("/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: authHeaders(),
         body: JSON.stringify({ video_url: url }),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || res.statusText);
-      }
+      if (!res.ok) { const e = await res.json(); throw new Error(e.detail || res.statusText); }
       connect();
-    } catch (e) {
-      alert(`Error: ${e.message}`);
-    }
+    } catch (e) { alert(`Error: ${e.message}`); }
   }
 
   async function stopMonitoring() {
-    await fetch("/stop", { method: "POST" });
-    updateStatus({ state: "idle", message: "Stopped." });
+    await fetch("/stop", { method: "POST", headers: authHeaders() });
+    updateStatus({ state: "idle", message: "Idle" });
   }
 
-  // ── Renderers ──────────────────────────────────────────────────────────────
+  // ── Renderers ────────────────────────────────────────────────────────────────
 
   function renderComment(c) {
     const list = document.getElementById("comment-list");
-
-    // Remove empty-feed placeholder
     const empty = document.getElementById("empty-feed");
     if (empty) empty.remove();
+
+    totalComments++;
+    document.getElementById("comment-count-badge").textContent = totalComments;
 
     const div = document.createElement("div");
     div.className = "comment" + (c.is_super_chat ? " superchat" : "");
@@ -405,70 +740,60 @@
       ${c.is_super_chat && c.super_chat_amount ? `<div class="comment-amount">${esc(c.super_chat_amount)}</div>` : ""}
       <div class="comment-text">${esc(c.message)}</div>
     `;
-
     list.prepend(div);
-
-    // Cap DOM nodes
-    while (list.children.length > MAX_COMMENTS) {
-      list.removeChild(list.lastChild);
-    }
+    while (list.children.length > 200) list.removeChild(list.lastChild);
   }
 
   function renderAnalysis(data) {
     const content = document.getElementById("analysis-content");
     const placeholder = document.getElementById("placeholder-msg");
 
-    // Fade out
     content.classList.add("fade-out");
-
     setTimeout(() => {
       placeholder.style.display = "none";
       content.style.display = "flex";
 
-      // Gauge
       const score = Math.max(0, Math.min(100, data.mood_score));
       updateGauge(score);
-      document.getElementById("mood-score-label").textContent = score;
 
-      // Sentiment badge
+      // KPI cards
+      document.getElementById("kpi-mood").textContent = score;
+      document.getElementById("kpi-comments").textContent = data.comment_count;
+      document.getElementById("kpi-sentiment").textContent = data.overall_sentiment;
+      const sentCard = document.getElementById("kpi-sentiment-card");
+      sentCard.className = "kpi-card " + sentimentToAccent(data.overall_sentiment);
+
+      // Gauge label
+      document.getElementById("mood-score-label").textContent = score;
       const badge = document.getElementById("sentiment-badge");
       badge.textContent = data.overall_sentiment;
-      badge.className = ""; // reset
+      badge.className = data.overall_sentiment;
       badge.id = "sentiment-badge";
-      badge.classList.add(data.overall_sentiment);
 
       // Themes
-      const themesEl = document.getElementById("themes-list");
-      themesEl.innerHTML = (data.key_themes || [])
-        .map(t => `<span class="theme-pill">${esc(t)}</span>`)
-        .join("");
+      document.getElementById("themes-list").innerHTML =
+        (data.key_themes || []).map(t => `<span class="theme-pill">${esc(t)}</span>`).join("");
 
       // Highlights
-      const hlEl = document.getElementById("highlights-list");
-      hlEl.innerHTML = (data.highlights || [])
-        .map(q => `<div class="highlight-quote">${esc(q)}</div>`)
-        .join("");
+      document.getElementById("highlights-list").innerHTML =
+        (data.highlights || []).map(q => `<div class="highlight-quote">${esc(q)}</div>`).join("");
 
       // Summary
       document.getElementById("summary-text").textContent = data.summary || "";
-
-      // Meta
       document.getElementById("meta-info").textContent =
-        `${data.comment_count} comments analysed · updated ${new Date().toLocaleTimeString()}`;
+        `${data.comment_count} comments · updated ${new Date().toLocaleTimeString()}`;
 
-      // Fade in
       content.classList.remove("fade-out");
       content.classList.add("fade-in");
-      setTimeout(() => content.classList.remove("fade-in"), 300);
-    }, 250);
+      setTimeout(() => content.classList.remove("fade-in"), 250);
+    }, 200);
   }
 
   function updateStatus(payload) {
     const badge = document.getElementById("status-badge");
-    badge.textContent = payload.message || payload.state;
+    document.getElementById("status-text").textContent = payload.message || payload.state;
     badge.className = payload.state === "monitoring" ? "monitoring"
-                    : payload.state === "error"      ? "error"
-                    : "";
+                    : payload.state === "error"      ? "error" : "";
   }
 
   function showError(payload) {
@@ -476,41 +801,35 @@
     updateStatus({ state: "error", message: `Error: ${payload.message}` });
   }
 
-  // ── Mood gauge (SVG arc) ────────────────────────────────────────────────
+  // ── Gauge ────────────────────────────────────────────────────────────────────
 
   function updateGauge(score) {
-    // Arc path: semicircle from 180° to 0°, total length ~251.2px
-    const ARC_LENGTH = 251.2;
-    const offset = ARC_LENGTH - (score / 100) * ARC_LENGTH;
+    const ARC = 201;
     const arc = document.getElementById("gauge-arc");
-    arc.setAttribute("stroke-dashoffset", offset.toFixed(1));
+    arc.setAttribute("stroke-dashoffset", (ARC - (score / 100) * ARC).toFixed(1));
     arc.setAttribute("stroke", scoreToColor(score));
   }
 
-  function scoreToColor(score) {
-    // 0=red, 50=yellow, 100=green
-    if (score < 50) {
-      const r = 244, g = Math.round(67 + (171 - 67) * (score / 50)), b = 54;
-      return `rgb(${r},${g},${b})`;
-    } else {
-      const r = Math.round(255 - (255 - 0) * ((score - 50) / 50));
-      const g = Math.round(171 + (200 - 171) * ((score - 50) / 50));
-      const b = Math.round(0 + (83 - 0) * ((score - 50) / 50));
-      return `rgb(${r},${g},${b})`;
+  function scoreToColor(s) {
+    if (s < 50) {
+      return `rgb(${229},${Math.round(72 + (164-72)*(s/50))},${Math.round(77*(1-s/50))})`;
     }
+    const t = (s - 50) / 50;
+    return `rgb(${Math.round(229*(1-t))},${Math.round(164 + (164-164)*t)},${Math.round(77*(1-t))})`;
   }
 
-  // ── Utility ────────────────────────────────────────────────────────────────
+  function sentimentToAccent(s) {
+    return { positive: "accent-green", negative: "accent-red", neutral: "accent-amber", mixed: "accent-blue" }[s] || "";
+  }
+
+  // ── Utility ──────────────────────────────────────────────────────────────────
 
   function esc(str) {
     return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+      .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   }
 
-  // Auto-connect on page load (for reconnects after server restart)
   connect();
 </script>
 </body>

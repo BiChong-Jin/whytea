@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StreamPulse — Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-base:        #111113;
+      --bg-element:     #212225;
+      --bg-hover:       #272a2d;
+      --border-subtle:  rgba(255,255,255,0.06);
+      --border-default: rgba(255,255,255,0.10);
+      --border-strong:  rgba(255,255,255,0.18);
+      --text-primary:   #edeef0;
+      --text-secondary: #b0b4ba;
+      --text-muted:     #696e77;
+      --accent:         #6e56cf;
+      --accent-glow:    rgba(110,86,207,0.25);
+      --red:            #e5484d;
+      --font-sans:      'Inter', -apple-system, sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font-sans);
+      background: var(--bg-base);
+      color: var(--text-primary);
+      background-image:
+        radial-gradient(ellipse 70% 60% at 50% 0%, rgba(110,86,207,0.12) 0%, transparent 65%),
+        radial-gradient(ellipse 50% 40% at 90% 100%, rgba(0,162,199,0.07) 0%, transparent 55%);
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100%;
+      padding: 24px;
+    }
+
+    /* Brand mark */
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+
+    .brand-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--accent), #9b7df8);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 0 24px rgba(110,86,207,0.35);
+    }
+
+    .brand-name {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+    }
+
+    /* Card */
+    .card {
+      width: 100%;
+      max-width: 380px;
+      background: var(--bg-element);
+      border: 1px solid var(--border-default);
+      border-radius: 16px;
+      padding: 32px 28px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+    }
+
+    /* Top gradient accent line */
+    .card::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(110,86,207,0.6), transparent);
+    }
+
+    /* Inner highlight */
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 60%;
+      background: linear-gradient(180deg, rgba(110,86,207,0.04) 0%, transparent 100%);
+      pointer-events: none;
+    }
+
+    .card-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+
+    .card-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 2px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      padding: 3px;
+      margin-bottom: 24px;
+    }
+
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 7px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 6px;
+      transition: background .15s, color .15s;
+      user-select: none;
+    }
+
+    .tab.active {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+
+    /* Form */
+    .form { display: flex; flex-direction: column; gap: 16px; }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+
+    label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    input {
+      background: var(--bg-hover);
+      border: 1px solid var(--border-default);
+      border-radius: 8px;
+      color: var(--text-primary);
+      padding: 9px 13px;
+      font-size: 14px;
+      font-family: var(--font-sans);
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input::placeholder { color: var(--text-muted); }
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent), #8b6cf0);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      margin-top: 4px;
+      transition: opacity .15s, transform .1s, box-shadow .15s;
+      box-shadow: 0 4px 16px rgba(110,86,207,0.4);
+    }
+    .submit-btn:hover  { opacity: .9; box-shadow: 0 6px 20px rgba(110,86,207,0.5); }
+    .submit-btn:active { transform: scale(.98); }
+    .submit-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    #error-msg {
+      font-size: 12px;
+      color: var(--red);
+      min-height: 16px;
+      text-align: center;
+    }
+
+    .footer-note {
+      margin-top: 20px;
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="brand">
+    <div class="brand-icon">📡</div>
+    <span class="brand-name">StreamPulse</span>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Welcome back</div>
+    <p class="card-subtitle">Sign in to your account or create a new one.</p>
+
+    <div class="tabs">
+      <div class="tab active" id="tab-login"    onclick="switchTab('login')">Login</div>
+      <div class="tab"        id="tab-register" onclick="switchTab('register')">Register</div>
+    </div>
+
+    <form class="form" onsubmit="handleSubmit(event)">
+      <div class="field">
+        <label for="username">Username</label>
+        <input id="username" type="text" placeholder="Enter your username" autocomplete="username" required />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" type="password" placeholder="Enter your password" autocomplete="current-password" required />
+      </div>
+      <div id="error-msg"></div>
+      <button type="submit" class="submit-btn" id="submit-btn">Login</button>
+    </form>
+  </div>
+
+  <p class="footer-note">Real-time YouTube audience sentiment analysis<br>powered by Claude AI</p>
+
+<script>
+  let currentTab = "login";
+
+  if (localStorage.getItem("token")) location.href = "/";
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById("tab-login").classList.toggle("active", tab === "login");
+    document.getElementById("tab-register").classList.toggle("active", tab === "register");
+    document.getElementById("submit-btn").textContent = tab === "login" ? "Login" : "Create account";
+    document.getElementById("error-msg").textContent = "";
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value;
+    const btn = document.getElementById("submit-btn");
+    const errorEl = document.getElementById("error-msg");
+
+    errorEl.textContent = "";
+    btn.disabled = true;
+
+    try {
+      if (currentTab === "register") {
+        const res = await fetch("/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_name: username, user_password: password }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Registration failed");
+        await doLogin(username, password);
+      } else {
+        await doLogin(username, password);
+      }
+    } catch (err) {
+      errorEl.textContent = err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function doLogin(username, password) {
+    const res = await fetch("/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_name: username, user_password: password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Login failed");
+    localStorage.setItem("token", data.access_token);
+    location.href = "/";
+  }
+</script>
+</body>
+</html>
