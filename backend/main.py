@@ -1,16 +1,22 @@
 import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from inspect import iscode
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from backend.models_db import User
 
 from .analyzer import ChatAnalyzer
+from .auth import create_token, create_user, get_user, verify_password
+from .database import get_db
 from .models import WSMessage
 from .youtube import YouTubeChatPoller, extract_video_id, resolve_live_chat_id
 
@@ -124,10 +130,55 @@ class StartRequest(BaseModel):
     video_url: str
 
 
+class RegisterRequest(BaseModel):
+    user_name: str
+    user_password: str
+
+
+class LoginRequest(BaseModel):
+    user_name: str
+    user_password: str
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index():
     html_path = Path(__file__).parent.parent / "frontend" / "index.html"
     return HTMLResponse(html_path.read_text())
+
+
+@app.post("/register")
+def register(body: RegisterRequest, db: Session = Depends(get_db)):
+    # call create_user() from auth.py
+    # if it returns None, the username is taken — raise HTTPException 400
+    # otherwise return {"message": "registered successfully"}
+    new_user: User | None = create_user(
+        db=db, username=body.user_name, password=body.user_password
+    )
+    if new_user is None:
+        raise HTTPException(status_code=404, detail="the username is taken.")
+    else:
+        return {"message": "registered successfully"}
+
+
+@app.post("/login")
+def login(body: LoginRequest, db: Session = Depends(get_db)):
+    # call get_user() to find the user
+    # if not found, raise HTTPException 401
+    # call verify_password() to check the password
+    # if wrong, raise HTTPException 401
+    # call create_token() with the username
+    # return {"access_token": token, "token_type": "bearer"}
+    user: User | None = get_user(db=db, username=body.user_name)
+
+    if user is None:
+        raise HTTPException(status_code=401, detail="user not found")
+
+    is_correct_password = verify_password(body.user_password, user.hashed_password)
+    if not is_correct_password:
+        raise HTTPException(status_code=401, detail="wrong password")
+
+    token: str = create_token(body.user_name)
+    return {"access_token": token, "token_type": "bearer"}
 
 
 @app.post("/start")
