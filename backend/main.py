@@ -28,63 +28,65 @@ from .youtube import YouTubeChatPoller, extract_video_id, resolve_live_chat_id
 class UserSession:
     tasks: list[asyncio.Task]
     analyzer: ChatAnalyzer
-    connections: list[WebSocket]
 
 
-async def broadcast_to_session(session: UserSession, msg: WSMessage) -> None:
+# Connections are kept separate from sessions so WebSocket registration
+# is not affected by whether /start has been called yet
+user_connections: dict[str, list[WebSocket]] = {}
+sessions: dict[str, "UserSession"] = {}
+
+
+async def broadcast_to_user(user_id: str, msg: WSMessage) -> None:
+    connections = list(user_connections.get(user_id, []))  # snapshot to avoid mutation during iteration
     data = msg.model_dump_json()
     dead = []
-    for ws in session.connections:
+    for ws in connections:
         try:
             await ws.send_text(data)
         except Exception:
             dead.append(ws)
+    live = user_connections.get(user_id, [])
     for ws in dead:
-        session.connections.remove(ws)
-
-
-sessions: dict[str, "UserSession"] = {}
+        if ws in live:
+            live.remove(ws)
 
 # ── Background tasks ────────────────────────────────────────────────────────
 
 
-async def polling_loop(poller: YouTubeChatPoller, session: UserSession) -> None:
+async def polling_loop(poller: YouTubeChatPoller, user_id: str, analyzer: ChatAnalyzer) -> None:
     while True:
         try:
             comments, interval_ms = await poller.fetch_next_page()
-            await session.analyzer.add_comments(comments)
+            await analyzer.add_comments(comments)
             for c in comments:
-                await broadcast_to_session(
-                    session,
+                await broadcast_to_user(
+                    user_id,
                     WSMessage(type="comment", payload=c.model_dump(mode="json")),
                 )
         except Exception as exc:
-            await broadcast_to_session(
-                session, WSMessage(type="error", payload={"message": str(exc)})
+            await broadcast_to_user(
+                user_id, WSMessage(type="error", payload={"message": str(exc)})
             )
         await asyncio.sleep(interval_ms / 1000)
 
 
-async def analysis_loop(interval_seconds: int, session: UserSession) -> None:
-    from .config import settings
-
+async def analysis_loop(interval_seconds: int, user_id: str, analyzer: ChatAnalyzer) -> None:
     while True:
         await asyncio.sleep(interval_seconds)
         window_end = datetime.now(timezone.utc)
-        # approximate window start
         window_start = datetime.fromtimestamp(
             window_end.timestamp() - interval_seconds, tz=timezone.utc
         )
         try:
-            result = await session.analyzer.run_analysis(window_start, window_end)
+            result = await analyzer.run_analysis(window_start, window_end)
             if result:
-                await broadcast_to_session(
-                    session,
+                await broadcast_to_user(
+                    user_id,
                     WSMessage(type="analysis", payload=result.model_dump(mode="json")),
                 )
         except Exception as exc:
-            await broadcast_to_session(
-                session, WSMessage(type="error", payload={"message": str(exc)})
+            await broadcast_to_user(
+                user_id, WSMessage(type="error", payload={"message": str(exc)})
             )
 
 
@@ -101,6 +103,8 @@ async def lifespan(app: FastAPI):
     for s in sessions.values():
         for t in s.tasks:
             t.cancel()
+    sessions.clear()
+    user_connections.clear()
 
 
 app = FastAPI(title="Stream Audience Analyzer", lifespan=lifespan)
@@ -210,14 +214,12 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
 async def start_monitoring(body: StartRequest, current_user=Depends(get_current_user)):
     from .config import settings
 
-    is_user_existing = sessions.get(str(current_user.id))
-    if is_user_existing:
-        # Cancel existing tasks
-        for t in is_user_existing.tasks:
-            t.cancel()
+    user_id = str(current_user.id)
 
-    new_userSession = UserSession([], ChatAnalyzer(), [])
-    sessions[str(current_user.id)] = new_userSession
+    existing = sessions.get(user_id)
+    if existing:
+        for t in existing.tasks:
+            t.cancel()
 
     try:
         video_id = extract_video_id(body.video_url)
@@ -242,42 +244,26 @@ async def start_monitoring(body: StartRequest, current_user=Depends(get_current_
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    analyzer = ChatAnalyzer()
     poller = YouTubeChatPoller(live_chat_id, settings.youtube_api_key)
-
-    current_session = sessions[str(current_user.id)]
-    current_session.tasks.append(
-        asyncio.create_task(polling_loop(poller, current_session))
-    )
-    current_session.tasks.append(
-        asyncio.create_task(
-            analysis_loop(settings.analysis_interval_seconds, current_session)
-        )
-    )
-
-    await broadcast_to_session(
-        new_userSession,
-        WSMessage(
-            type="status",
-            payload={"state": "monitoring", "message": f"Monitoring video {video_id}"},
-        ),
-    )
+    session = UserSession(tasks=[], analyzer=analyzer)
+    session.tasks.append(asyncio.create_task(polling_loop(poller, user_id, analyzer)))
+    session.tasks.append(asyncio.create_task(analysis_loop(settings.analysis_interval_seconds, user_id, analyzer)))
+    sessions[user_id] = session
 
     return {"status": "monitoring", "video_id": video_id, "live_chat_id": live_chat_id}
 
 
 @app.post("/stop")
 async def stop_monitoring(current_user=Depends(get_current_user)):
-    current_session = sessions.get(str(current_user.id))
+    user_id = str(current_user.id)
+    current_session = sessions.pop(user_id, None)
     if current_session:
         for t in current_session.tasks:
             t.cancel()
-        del sessions[str(current_user.id)]
-        await broadcast_to_session(
-            current_session,
-            WSMessage(
-                type="status",
-                payload={"state": "idle", "message": "Monitoring stopped."},
-            ),
+        await broadcast_to_user(
+            user_id,
+            WSMessage(type="status", payload={"state": "idle", "message": "Monitoring stopped."}),
         )
     return {"status": "stopped"}
 
@@ -319,14 +305,13 @@ async def websocket_endpoint(ws: WebSocket, token: str | None = None):
         return
 
     await ws.accept()
-    current_session = sessions.get(str(user.id))
-    if current_session:
-        current_session.connections.append(ws)
+    user_id = str(user.id)
+    user_connections.setdefault(user_id, []).append(ws)
 
     try:
         while True:
             await ws.receive_text()
     except WebSocketDisconnect:
-        current_session = sessions.get(str(user.id))
-        if current_session and ws in current_session.connections:
-            current_session.connections.remove(ws)
+        conns = user_connections.get(user_id, [])
+        if ws in conns:
+            conns.remove(ws)

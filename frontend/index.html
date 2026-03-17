@@ -708,14 +708,21 @@
   async function startMonitoring() {
     const url = document.getElementById("url-input").value.trim();
     if (!url) { alert("Please enter a YouTube live URL or video ID."); return; }
+
+    // Connect WebSocket first so it's in the session before polling starts
+    connect();
+
     try {
       const res = await fetch("/start", {
         method: "POST", headers: authHeaders(),
         body: JSON.stringify({ video_url: url }),
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.detail || res.statusText); }
-      connect();
-    } catch (e) { alert(`Error: ${e.message}`); }
+      updateStatus({ state: "monitoring", message: "Monitoring" });
+    } catch (e) {
+      alert(`Error: ${e.message}`);
+      updateStatus({ state: "idle", message: "Idle" });
+    }
   }
 
   async function stopMonitoring() {
