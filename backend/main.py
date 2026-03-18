@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-import httpx
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
@@ -28,6 +27,7 @@ from .youtube import YouTubeChatPoller, QuotaExceededError, extract_video_id, re
 class UserSession:
     tasks: list[asyncio.Task]
     analyzer: ChatAnalyzer
+    poller: "YouTubeChatPoller | None" = None
 
 
 # Connections are kept separate from sessions so WebSocket registration
@@ -247,36 +247,18 @@ async def start_monitoring(body: StartRequest, current_user=Depends(get_current_
         raise HTTPException(status_code=400, detail=str(e))
 
     try:
-        live_chat_id = await resolve_live_chat_id(video_id, settings.youtube_api_key)
-    except httpx.HTTPStatusError as e:
-        if e.response.status_code == 403:
-            body = e.response.json()
-            errors = body.get("error", {}).get("errors", [])
-            reason = errors[0].get("reason", "") if errors else ""
-            if reason in ("quotaExceeded", "rateLimitExceeded"):
-                raise HTTPException(status_code=429, detail="YouTube API daily quota exceeded. Quota resets at midnight Pacific Time.")
-            raise HTTPException(
-                status_code=502,
-                detail=(
-                    "YouTube API returned 403 Forbidden. "
-                    "Make sure the YouTube Data API v3 is enabled in your Google Cloud project "
-                    "and that your API key has no restrictive settings blocking server requests."
-                ),
-            )
-        raise HTTPException(
-            status_code=502, detail=f"YouTube API error: {e.response.status_code}"
-        )
+        await resolve_live_chat_id(video_id, settings.youtube_api_key)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
     analyzer = ChatAnalyzer()
-    poller = YouTubeChatPoller(live_chat_id, settings.youtube_api_key)
-    session = UserSession(tasks=[], analyzer=analyzer)
+    poller = YouTubeChatPoller(video_id)
+    session = UserSession(tasks=[], analyzer=analyzer, poller=poller)
     session.tasks.append(asyncio.create_task(polling_loop(poller, user_id, analyzer)))
     session.tasks.append(asyncio.create_task(analysis_loop(settings.analysis_interval_seconds, user_id, analyzer)))
     sessions[user_id] = session
 
-    return {"status": "monitoring", "video_id": video_id, "live_chat_id": live_chat_id}
+    return {"status": "monitoring", "video_id": video_id}
 
 
 @app.post("/stop")
@@ -286,6 +268,8 @@ async def stop_monitoring(current_user=Depends(get_current_user)):
     if current_session:
         for t in current_session.tasks:
             t.cancel()
+        if current_session.poller:
+            current_session.poller.terminate()
         await broadcast_to_user(
             user_id,
             WSMessage(type="status", payload={"state": "idle", "message": "Monitoring stopped."}),
