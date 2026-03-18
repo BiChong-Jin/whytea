@@ -28,6 +28,7 @@ class UserSession:
     tasks: list[asyncio.Task]
     analyzer: ChatAnalyzer
     poller: "YouTubeChatPoller | None" = None
+    language: str = "en"
 
 
 # Connections are kept separate from sessions so WebSocket registration
@@ -84,7 +85,8 @@ async def analysis_loop(interval_seconds: int, user_id: str, analyzer: ChatAnaly
             window_end.timestamp() - interval_seconds, tz=timezone.utc
         )
         try:
-            result = await analyzer.run_analysis(window_start, window_end)
+            language = sessions[user_id].language if user_id in sessions else "en"
+            result = await analyzer.run_analysis(window_start, window_end, language)
             if result:
                 await broadcast_to_user(
                     user_id,
@@ -147,6 +149,10 @@ if frontend_dir.exists():
 
 class StartRequest(BaseModel):
     video_url: str
+
+
+class ReanalyzeRequest(BaseModel):
+    language: str = "en"  # "en", "zh", "ja"
 
 
 class RegisterRequest(BaseModel):
@@ -291,6 +297,29 @@ async def get_status():
         "connected_clients": total_connected_clients,
         "monitoring": total_tasks_nums > 0,
     }
+
+
+@app.post("/reanalyze")
+async def reanalyze(body: ReanalyzeRequest, current_user=Depends(get_current_user)):
+    if body.language not in ("en", "zh", "ja"):
+        raise HTTPException(status_code=400, detail="language must be one of: en, zh, ja")
+
+    user_id = str(current_user.id)
+    session = sessions.get(user_id)
+    if not session:
+        raise HTTPException(status_code=400, detail="No active monitoring session.")
+
+    session.language = body.language
+
+    window_end = datetime.now(timezone.utc)
+    window_start = datetime.fromtimestamp(
+        window_end.timestamp() - 30, tz=timezone.utc
+    )
+    result = await session.analyzer.reanalyze(window_start, window_end, body.language)
+    if not result:
+        raise HTTPException(status_code=400, detail="No comments to analyze yet.")
+
+    return result.model_dump(mode="json")
 
 
 # ── WebSocket ────────────────────────────────────────────────────────────────

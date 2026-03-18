@@ -444,6 +444,49 @@
     }
     #placeholder-msg strong { color: var(--text-secondary); }
 
+    /* ── Language selector ── */
+    .lang-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .lang-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .lang-buttons {
+      display: flex;
+      gap: 4px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      padding: 3px;
+    }
+
+    .lang-btn {
+      padding: 5px 14px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+    .lang-btn:hover  { color: var(--text-secondary); }
+    .lang-btn.active {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    .lang-btn:disabled { opacity: .5; cursor: not-allowed; }
+
     /* ── Chat feed (right) ── */
     #feed-panel {
       display: flex;
@@ -624,6 +667,16 @@
         </div>
       </div>
 
+      <!-- Language selector -->
+      <div class="lang-row">
+        <span class="lang-label">Language</span>
+        <div class="lang-buttons">
+          <button class="lang-btn active" data-lang="en" onclick="setLanguage('en')">EN</button>
+          <button class="lang-btn" data-lang="zh" onclick="setLanguage('zh')">中文</button>
+          <button class="lang-btn" data-lang="ja" onclick="setLanguage('ja')">日本語</button>
+        </div>
+      </div>
+
       <!-- Themes + Highlights -->
       <div class="content-row">
         <div class="section-card">
@@ -660,6 +713,7 @@
 <script>
   let ws = null;
   let totalComments = 0;
+  let currentLang = "en";
 
   // ── Auth ────────────────────────────────────────────────────────────────────
 
@@ -827,6 +881,37 @@
 
   function sentimentToAccent(s) {
     return { positive: "accent-green", negative: "accent-red", neutral: "accent-amber", mixed: "accent-blue" }[s] || "";
+  }
+
+  // ── Language ─────────────────────────────────────────────────────────────────
+
+  async function setLanguage(lang) {
+    if (lang === currentLang) return;
+    currentLang = lang;
+
+    // Update active button
+    document.querySelectorAll(".lang-btn").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.lang === lang);
+      btn.disabled = true;
+    });
+
+    try {
+      const res = await fetch("/reanalyze", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ language: lang }),
+      });
+      if (!res.ok) {
+        const e = await res.json();
+        throw new Error(e.detail || res.statusText);
+      }
+      const data = await res.json();
+      renderAnalysis(data);
+    } catch (e) {
+      alert(`Translation failed: ${e.message}`);
+    } finally {
+      document.querySelectorAll(".lang-btn").forEach(btn => btn.disabled = false);
+    }
   }
 
   // ── Utility ──────────────────────────────────────────────────────────────────

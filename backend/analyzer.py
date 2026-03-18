@@ -15,6 +15,12 @@ Mood score: 0 = extremely negative, 50 = neutral, 100 = extremely positive.
 Always return valid JSON matching the requested schema exactly — no markdown fences, no extra keys.\
 """
 
+LANGUAGES = {
+    "en": "English",
+    "zh": "Chinese (Simplified)",
+    "ja": "Japanese",
+}
+
 
 def _format_comments(comments: list[ChatComment]) -> str:
     lines: list[str] = []
@@ -34,13 +40,27 @@ class ChatAnalyzer:
         async with self._lock:
             self._buffer.extend(comments)
 
-    async def run_analysis(self, window_start: datetime, window_end: datetime) -> AnalysisResult | None:
+    async def run_analysis(self, window_start: datetime, window_end: datetime, language: str = "en") -> AnalysisResult | None:
         async with self._lock:
             batch = list(self._buffer[-settings.max_comments_per_batch:])
 
         if not batch:
             return None
 
+        return await self._call_claude(batch, window_start, window_end, language)
+
+    async def reanalyze(self, window_start: datetime, window_end: datetime, language: str) -> AnalysisResult | None:
+        """Re-run analysis on the current buffer with a different language."""
+        async with self._lock:
+            batch = list(self._buffer[-settings.max_comments_per_batch:])
+
+        if not batch:
+            return None
+
+        return await self._call_claude(batch, window_start, window_end, language)
+
+    async def _call_claude(self, batch: list[ChatComment], window_start: datetime, window_end: datetime, language: str = "en") -> AnalysisResult | None:
+        lang_name = LANGUAGES.get(language, "English")
         formatted = _format_comments(batch)
         user_prompt = f"""\
 Analyze the following {len(batch)} YouTube live chat comments from the last \
@@ -50,13 +70,15 @@ Analyze the following {len(batch)} YouTube live chat comments from the last \
 {formatted}
 --- COMMENTS END ---
 
+Respond ENTIRELY in {lang_name} — all field values must be written in {lang_name}.
+
 Return a JSON object with exactly these fields:
 {{
   "overall_sentiment": "positive" | "neutral" | "negative" | "mixed",
   "mood_score": <integer 0-100>,
-  "key_themes": [<3 to 7 short theme strings>],
+  "key_themes": [<3 to 7 short theme strings in {lang_name}>],
   "highlights": [<3 to 5 verbatim notable quotes, prefer Super Chats>],
-  "summary": "<2-4 sentence paragraph describing the audience reaction>"
+  "summary": "<2-4 sentence paragraph describing the audience reaction, written in {lang_name}>"
 }}
 """
         try:
@@ -66,10 +88,9 @@ Return a JSON object with exactly these fields:
                 system=SYSTEM_PROMPT,
                 messages=[
                     {"role": "user", "content": user_prompt},
-                    {"role": "assistant", "content": "{"},  # prefill forces raw JSON
+                    {"role": "assistant", "content": "{"},
                 ],
             )
-            # Prepend the prefill "{" we used to force raw JSON output
             raw = "{" + response.content[0].text.strip()
             data = json.loads(raw)
             return AnalysisResult(
