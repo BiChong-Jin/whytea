@@ -19,7 +19,7 @@ from .analyzer import ChatAnalyzer
 from .auth import create_token, create_user, decode_token, get_user, verify_password
 from .database import get_db
 from .models import WSMessage
-from .youtube import YouTubeChatPoller, extract_video_id, resolve_live_chat_id
+from .youtube import YouTubeChatPoller, QuotaExceededError, extract_video_id, resolve_live_chat_id
 
 # ── WebSocket connection manager ────────────────────────────────────────────
 
@@ -63,6 +63,12 @@ async def polling_loop(poller: YouTubeChatPoller, user_id: str, analyzer: ChatAn
                     user_id,
                     WSMessage(type="comment", payload=c.model_dump(mode="json")),
                 )
+        except QuotaExceededError as exc:
+            await broadcast_to_user(
+                user_id, WSMessage(type="error", payload={"message": str(exc)})
+            )
+            # Stop polling — no point retrying until quota resets (midnight Pacific time)
+            return
         except Exception as exc:
             await broadcast_to_user(
                 user_id, WSMessage(type="error", payload={"message": str(exc)})
@@ -93,13 +99,27 @@ async def analysis_loop(interval_seconds: int, user_id: str, analyzer: ChatAnaly
 # ── App lifecycle ────────────────────────────────────────────────────────────
 
 
+async def cleanup_loop() -> None:
+    """Periodically remove dead WebSocket connections that never sent a clean disconnect."""
+    while True:
+        await asyncio.sleep(60)
+        for user_id, conns in list(user_connections.items()):
+            dead = [ws for ws in conns if ws.client_state.value != 1]  # 1 = CONNECTED
+            for ws in dead:
+                conns.remove(ws)
+            if not conns:
+                user_connections.pop(user_id, None)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from .database import engine
     from .models_db import Base
 
     Base.metadata.create_all(bind=engine)
+    cleanup_task = asyncio.create_task(cleanup_loop())
     yield
+    cleanup_task.cancel()
     for s in sessions.values():
         for t in s.tasks:
             t.cancel()
@@ -230,6 +250,11 @@ async def start_monitoring(body: StartRequest, current_user=Depends(get_current_
         live_chat_id = await resolve_live_chat_id(video_id, settings.youtube_api_key)
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 403:
+            body = e.response.json()
+            errors = body.get("error", {}).get("errors", [])
+            reason = errors[0].get("reason", "") if errors else ""
+            if reason in ("quotaExceeded", "rateLimitExceeded"):
+                raise HTTPException(status_code=429, detail="YouTube API daily quota exceeded. Quota resets at midnight Pacific Time.")
             raise HTTPException(
                 status_code=502,
                 detail=(
@@ -315,3 +340,6 @@ async def websocket_endpoint(ws: WebSocket, token: str | None = None):
         conns = user_connections.get(user_id, [])
         if ws in conns:
             conns.remove(ws)
+        # Remove the key entirely if no connections left
+        if not conns:
+            user_connections.pop(user_id, None)

@@ -9,6 +9,10 @@ from .models import ChatComment
 YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3"
 
 
+class QuotaExceededError(Exception):
+    pass
+
+
 def extract_video_id(url_or_id: str) -> str:
     """Extract video ID from a YouTube URL or return the ID as-is."""
     url_or_id = url_or_id.strip()
@@ -77,6 +81,12 @@ class YouTubeChatPoller:
 
         async with httpx.AsyncClient() as client:
             resp = await client.get(f"{YOUTUBE_API_BASE}/liveChat/messages", params=params)
+            if resp.status_code == 403:
+                body = resp.json()
+                errors = body.get("error", {}).get("errors", [])
+                reason = errors[0].get("reason", "") if errors else ""
+                if reason in ("quotaExceeded", "rateLimitExceeded"):
+                    raise QuotaExceededError("YouTube API daily quota exceeded. Monitoring paused.")
             resp.raise_for_status()
             data = resp.json()
 
