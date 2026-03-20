@@ -9,7 +9,7 @@ from .models_db import User
 
 SECRET_KEY = settings.jwt_secret_key
 ALGORITHM = "HS256"
-TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
+TOKEN_EXPIRE_MINUTES = settings.jwt_token_expire_hours * 60
 
 pwd_context = CryptContext(schemes=["bcrypt"])
 

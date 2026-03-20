@@ -11,3 +11,4 @@ sqlalchemy
 alembic
 bcrypt<4.0
 pytchat
+slowapi

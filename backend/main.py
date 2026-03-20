@@ -1,26 +1,44 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from backend.models_db import User
 
 from .analyzer import ChatAnalyzer
 from .auth import create_token, create_user, decode_token, get_user, verify_password
+from .config import settings
 from .database import get_db
 from .models import WSMessage
 from .youtube import YouTubeChatPoller, QuotaExceededError, extract_video_id, resolve_live_chat_id
 
-# ── WebSocket connection manager ────────────────────────────────────────────
+# ── Logging ──────────────────────────────────────────────────────────────────
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+logger = logging.getLogger(__name__)
+
+# ── Rate limiter ──────────────────────────────────────────────────────────────
+
+limiter = Limiter(key_func=get_remote_address)
+
+# ── WebSocket connection manager ─────────────────────────────────────────────
 
 
 @dataclass
@@ -51,7 +69,7 @@ async def broadcast_to_user(user_id: str, msg: WSMessage) -> None:
         if ws in live:
             live.remove(ws)
 
-# ── Background tasks ────────────────────────────────────────────────────────
+# ── Background tasks ─────────────────────────────────────────────────────────
 
 
 async def polling_loop(poller: YouTubeChatPoller, user_id: str, analyzer: ChatAnalyzer) -> None:
@@ -65,12 +83,14 @@ async def polling_loop(poller: YouTubeChatPoller, user_id: str, analyzer: ChatAn
                     WSMessage(type="comment", payload=c.model_dump(mode="json")),
                 )
         except QuotaExceededError as exc:
+            logger.warning("Quota exceeded for user %s: %s", user_id, exc)
             await broadcast_to_user(
                 user_id, WSMessage(type="error", payload={"message": str(exc)})
             )
             # Stop polling — no point retrying until quota resets (midnight Pacific time)
             return
         except Exception as exc:
+            logger.error("Polling error for user %s: %s", user_id, exc)
             await broadcast_to_user(
                 user_id, WSMessage(type="error", payload={"message": str(exc)})
             )
@@ -85,7 +105,8 @@ async def analysis_loop(interval_seconds: int, user_id: str, analyzer: ChatAnaly
             window_end.timestamp() - interval_seconds, tz=timezone.utc
         )
         try:
-            language = sessions[user_id].language if user_id in sessions else "en"
+            session = sessions.get(user_id)
+            language = session.language if session else "en"
             result = await analyzer.run_analysis(window_start, window_end, language)
             if result:
                 await broadcast_to_user(
@@ -93,12 +114,13 @@ async def analysis_loop(interval_seconds: int, user_id: str, analyzer: ChatAnaly
                     WSMessage(type="analysis", payload=result.model_dump(mode="json")),
                 )
         except Exception as exc:
+            logger.error("Analysis error for user %s: %s", user_id, exc)
             await broadcast_to_user(
                 user_id, WSMessage(type="error", payload={"message": str(exc)})
             )
 
 
-# ── App lifecycle ────────────────────────────────────────────────────────────
+# ── App lifecycle ─────────────────────────────────────────────────────────────
 
 
 async def cleanup_loop() -> None:
@@ -120,6 +142,7 @@ async def lifespan(app: FastAPI):
 
     Base.metadata.create_all(bind=engine)
     cleanup_task = asyncio.create_task(cleanup_loop())
+    logger.info("StreamPulse started — CORS origins: %s", settings.cors_origins)
     yield
     cleanup_task.cancel()
     for s in sessions.values():
@@ -127,13 +150,17 @@ async def lifespan(app: FastAPI):
             t.cancel()
     sessions.clear()
     user_connections.clear()
+    logger.info("StreamPulse shutdown complete")
 
 
 app = FastAPI(title="Stream Audience Analyzer", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+cors_origins = [o.strip() for o in settings.cors_origins.split(",")]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -144,7 +171,7 @@ if frontend_dir.exists():
     app.mount("/static", StaticFiles(directory=str(frontend_dir)), name="static")
 
 
-# ── HTTP endpoints ───────────────────────────────────────────────────────────
+# ── HTTP endpoints ────────────────────────────────────────────────────────────
 
 
 class StartRequest(BaseModel):
@@ -159,6 +186,25 @@ class RegisterRequest(BaseModel):
     user_name: str
     user_password: str
 
+    @field_validator("user_name")
+    @classmethod
+    def validate_username(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) < 3:
+            raise ValueError("Username must be at least 3 characters")
+        if len(v) > 32:
+            raise ValueError("Username must be at most 32 characters")
+        return v
+
+    @field_validator("user_password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        if len(v) > 72:
+            raise ValueError("Password must be at most 72 characters")
+        return v
+
 
 class LoginRequest(BaseModel):
     user_name: str
@@ -171,11 +217,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 def get_current_user(
     token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
 ):
-    # call decode_token(token) to get the username
-    # if it returns None, raise HTTPException 401 with detail "invalid or expired token"
-    # call get_user(db, username) to get the user from db
-    # if user not found, raise HTTPException 401
-    # return the user
     user_name = decode_token(token)
 
     if user_name is None:
@@ -201,45 +242,42 @@ async def login_page():
     return HTMLResponse(html_path.read_text())
 
 
+@app.get("/health")
+async def health():
+    return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+
 @app.post("/register")
-def register(body: RegisterRequest, db: Session = Depends(get_db)):
-    # call create_user() from auth.py
-    # if it returns None, the username is taken — raise HTTPException 400
-    # otherwise return {"message": "registered successfully"}
+@limiter.limit("5/minute")
+def register(request: Request, body: RegisterRequest, db: Session = Depends(get_db)):
     new_user: User | None = create_user(
         db=db, username=body.user_name, password=body.user_password
     )
     if new_user is None:
-        raise HTTPException(status_code=400, detail="the username is taken.")
-    else:
-        return {"message": "registered successfully"}
+        raise HTTPException(status_code=400, detail="username is already taken")
+    logger.info("New user registered: %s", body.user_name)
+    return {"message": "registered successfully"}
 
 
 @app.post("/login")
-def login(body: LoginRequest, db: Session = Depends(get_db)):
-    # call get_user() to find the user
-    # if not found, raise HTTPException 401
-    # call verify_password() to check the password
-    # if wrong, raise HTTPException 401
-    # call create_token() with the username
-    # return {"access_token": token, "token_type": "bearer"}
+@limiter.limit("10/minute")
+def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
     user: User | None = get_user(db=db, username=body.user_name)
 
     if user is None:
-        raise HTTPException(status_code=401, detail="user not found")
+        raise HTTPException(status_code=401, detail="invalid credentials")
 
     is_correct_password = verify_password(body.user_password, user.hashed_password)
     if not is_correct_password:
-        raise HTTPException(status_code=401, detail="wrong password")
+        raise HTTPException(status_code=401, detail="invalid credentials")
 
     token: str = create_token(body.user_name)
+    logger.info("User logged in: %s", body.user_name)
     return {"access_token": token, "token_type": "bearer"}
 
 
 @app.post("/start")
 async def start_monitoring(body: StartRequest, current_user=Depends(get_current_user)):
-    from .config import settings
-
     user_id = str(current_user.id)
 
     existing = sessions.get(user_id)
@@ -264,6 +302,7 @@ async def start_monitoring(body: StartRequest, current_user=Depends(get_current_
     session.tasks.append(asyncio.create_task(analysis_loop(settings.analysis_interval_seconds, user_id, analyzer)))
     sessions[user_id] = session
 
+    logger.info("User %s started monitoring video %s", current_user.user_name, video_id)
     return {"status": "monitoring", "video_id": video_id}
 
 
@@ -280,6 +319,7 @@ async def stop_monitoring(current_user=Depends(get_current_user)):
             user_id,
             WSMessage(type="status", payload={"state": "idle", "message": "Monitoring stopped."}),
         )
+        logger.info("User %s stopped monitoring", current_user.user_name)
     return {"status": "stopped"}
 
 
@@ -322,7 +362,7 @@ async def reanalyze(body: ReanalyzeRequest, current_user=Depends(get_current_use
     return result.model_dump(mode="json")
 
 
-# ── WebSocket ────────────────────────────────────────────────────────────────
+# ── WebSocket ─────────────────────────────────────────────────────────────────
 
 
 @app.websocket("/ws")
@@ -345,6 +385,7 @@ async def websocket_endpoint(ws: WebSocket, token: str | None = None):
     await ws.accept()
     user_id = str(user.id)
     user_connections.setdefault(user_id, []).append(ws)
+    logger.info("WebSocket connected: user %s", username)
 
     try:
         while True:
@@ -356,3 +397,4 @@ async def websocket_endpoint(ws: WebSocket, token: str | None = None):
         # Remove the key entirely if no connections left
         if not conns:
             user_connections.pop(user_id, None)
+        logger.info("WebSocket disconnected: user %s", username)

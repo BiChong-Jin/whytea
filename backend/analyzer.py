@@ -39,6 +39,10 @@ class ChatAnalyzer:
     async def add_comments(self, comments: list[ChatComment]) -> None:
         async with self._lock:
             self._buffer.extend(comments)
+            # Prevent unbounded memory growth: keep only the latest window
+            max_buffer = settings.max_comments_per_batch * 10
+            if len(self._buffer) > max_buffer:
+                self._buffer = self._buffer[-max_buffer:]
 
     async def run_analysis(self, window_start: datetime, window_end: datetime, language: str = "en") -> AnalysisResult | None:
         async with self._lock:
@@ -90,6 +94,7 @@ Return a JSON object with exactly these fields:
                     {"role": "user", "content": user_prompt},
                     {"role": "assistant", "content": "{"},
                 ],
+                timeout=30.0,
             )
             raw = "{" + response.content[0].text.strip()
             data = json.loads(raw)

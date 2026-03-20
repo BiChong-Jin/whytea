@@ -738,6 +738,17 @@
     return { "Content-Type": "application/json", "Authorization": `Bearer ${token}` };
   }
 
+  // Wraps fetch — automatically redirects to /login on 401 (expired/invalid token)
+  async function apiFetch(url, options = {}) {
+    const res = await fetch(url, options);
+    if (res.status === 401) {
+      localStorage.removeItem("token");
+      location.href = "/login";
+      throw new Error("Session expired");
+    }
+    return res;
+  }
+
   // ── WebSocket ────────────────────────────────────────────────────────────────
 
   function connect() {
@@ -767,7 +778,7 @@
     connect();
 
     try {
-      const res = await fetch("/start", {
+      const res = await apiFetch("/start", {
         method: "POST", headers: authHeaders(),
         body: JSON.stringify({ video_url: url }),
       });
@@ -780,7 +791,7 @@
   }
 
   async function stopMonitoring() {
-    await fetch("/stop", { method: "POST", headers: authHeaders() });
+    await apiFetch("/stop", { method: "POST", headers: authHeaders() });
     updateStatus({ state: "idle", message: "Idle" });
   }
 
@@ -896,7 +907,7 @@
     });
 
     try {
-      const res = await fetch("/reanalyze", {
+      const res = await apiFetch("/reanalyze", {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({ language: lang }),
