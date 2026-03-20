@@ -1,6 +1,7 @@
 import asyncio
-import json
 from datetime import datetime, timezone
+
+from json_repair import repair_json
 
 import anthropic
 
@@ -97,7 +98,7 @@ Return a JSON object with exactly these fields:
                 timeout=30.0,
             )
             raw = "{" + response.content[0].text.strip()
-            data = json.loads(raw)
+            data = repair_json(raw, return_objects=True)
             return AnalysisResult(
                 overall_sentiment=data["overall_sentiment"],
                 mood_score=int(data["mood_score"]),
