@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Whytea — YouTube Comments Analyzer</title>
+  <meta name="description" content="Whytea analyzes your YouTube live stream chat in real time. Get AI-powered mood scores, key themes, and audience sentiment summaries updated every 30 seconds." />
+  <meta name="keywords" content="YouTube live chat analyzer, stream sentiment analysis, YouTube audience mood, live chat AI, stream analytics tool" />
+  <meta property="og:title" content="Whytea — YouTube Comments Analyzer" />
+  <meta property="og:description" content="AI-powered sentiment analysis for YouTube live streams. Mood scores, key themes, and audience highlights updated every 30 seconds." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Whytea — YouTube Live Chat Analyzer" />
+  <meta name="twitter:description" content="Real-time AI sentiment analysis for YouTube live streams." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-base:        #111113;
+      --bg-subtle:      #18191b;
+      --bg-element:     #212225;
+      --bg-hover:       #272a2d;
+      --border-subtle:  rgba(255,255,255,0.06);
+      --border-default: rgba(255,255,255,0.10);
+      --text-primary:   #edeef0;
+      --text-secondary: #b0b4ba;
+      --text-muted:     #696e77;
+      --accent:         #10b981;
+      --font-sans:      'Inter', -apple-system, sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-base);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* ── Animated background orbs ── */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(100px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .orb-1 {
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(16,185,129,0.18) 0%, transparent 70%);
+      top: -200px; left: 50%;
+      transform: translateX(-50%);
+      animation: orb-drift-1 18s ease-in-out infinite;
+    }
+    .orb-2 {
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(0,162,199,0.12) 0%, transparent 70%);
+      bottom: 10%; right: -100px;
+      animation: orb-drift-2 22s ease-in-out infinite;
+    }
+    .orb-3 {
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, rgba(52,211,153,0.10) 0%, transparent 70%);
+      top: 50%; left: -80px;
+      animation: orb-drift-3 16s ease-in-out infinite;
+    }
+
+    @keyframes orb-drift-1 {
+      0%,100% { transform: translateX(-50%) translateY(0px); }
+      50%      { transform: translateX(-50%) translateY(40px); }
+    }
+    @keyframes orb-drift-2 {
+      0%,100% { transform: translate(0, 0); }
+      33%     { transform: translate(-30px, -40px); }
+      66%     { transform: translate(20px, 20px); }
+    }
+    @keyframes orb-drift-3 {
+      0%,100% { transform: translateY(-50%) translateX(0); }
+      50%     { transform: translateY(-50%) translateX(30px); }
+    }
+
+    /* Dot grid overlay */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: radial-gradient(rgba(255,255,255,0.035) 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* All content above orbs */
+    nav, section, .stats, footer { position: relative; z-index: 1; }
+
+    /* ── Nav ── */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 48px;
+      height: 60px;
+      background: rgba(17,17,19,0.75);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-subtle);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      animation: nav-in .5s ease-out;
+    }
+
+    @keyframes nav-in {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .nav-icon {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, var(--accent), #34d399);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      box-shadow: 0 0 16px rgba(16,185,129,0.4);
+      animation: icon-pulse 3s ease-in-out infinite;
+    }
+
+    @keyframes icon-pulse {
+      0%,100% { box-shadow: 0 0 16px rgba(16,185,129,0.4); }
+      50%      { box-shadow: 0 0 28px rgba(16,185,129,0.7); }
+    }
+
+    .nav-links { display: flex; align-items: center; gap: 8px; }
+
+    .btn {
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      border: none;
+      transition: opacity .15s, transform .1s, box-shadow .2s;
+    }
+    .btn:hover  { opacity: .88; }
+    .btn:active { transform: scale(.97); }
+    .btn-ghost   { background: var(--bg-element); border: 1px solid var(--border-default); color: var(--text-secondary); }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #059669);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(16,185,129,0.4);
+    }
+    .btn-primary:hover { box-shadow: 0 6px 24px rgba(16,185,129,0.6); opacity: 1; }
+
+    /* ── Hero entrance animations ── */
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    .hero {
+      text-align: center;
+      padding: 108px 24px 88px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(16,185,129,0.12);
+      border: 1px solid rgba(16,185,129,0.35);
+      border-radius: 9999px;
+      padding: 5px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #6ee7b7;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 32px;
+      animation: fade-up .6s ease-out .1s both;
+      /* Shimmer on badge */
+      background-image: linear-gradient(90deg, rgba(16,185,129,0.12), rgba(52,211,153,0.2), rgba(16,185,129,0.12));
+      background-size: 200% 100%;
+      animation: fade-up .6s ease-out .1s both, badge-shimmer 3s ease-in-out 1s infinite;
+    }
+
+    @keyframes badge-shimmer {
+      0%,100% { background-position: 0% 50%; }
+      50%      { background-position: 100% 50%; }
+    }
+
+    .hero-badge .dot {
+      width: 6px; height: 6px;
+      background: #6ee7b7;
+      border-radius: 50%;
+      animation: dot-pulse 2s ease-in-out infinite;
+    }
+    @keyframes dot-pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.5; transform: scale(0.7); }
+    }
+
+    h1 {
+      font-size: clamp(38px, 6vw, 64px);
+      font-weight: 800;
+      letter-spacing: -0.035em;
+      line-height: 1.08;
+      margin-bottom: 24px;
+      background: linear-gradient(160deg, #ffffff 0%, #a7f3d0 40%, #edeef0 80%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: fade-up .7s ease-out .25s both;
+    }
+
+    .hero > p {
+      font-size: 18px;
+      color: var(--text-secondary);
+      max-width: 540px;
+      margin: 0 auto 44px;
+      line-height: 1.75;
+      animation: fade-up .7s ease-out .4s both;
+    }
+
+    .hero-cta {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      animation: fade-up .7s ease-out .55s both;
+    }
+
+    .hero-cta .btn { padding: 13px 30px; font-size: 15px; }
+
+    /* CTA glow ring */
+    .btn-primary-lg {
+      position: relative;
+    }
+    .btn-primary-lg::after {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 11px;
+      background: linear-gradient(135deg, rgba(16,185,129,0.6), rgba(52,211,153,0.4));
+      filter: blur(8px);
+      z-index: -1;
+      opacity: 0;
+      transition: opacity .3s;
+    }
+    .btn-primary-lg:hover::after { opacity: 1; }
+
+    /* ── Stats ── */
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      border-top: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(24,25,27,0.6);
+      backdrop-filter: blur(8px);
+      flex-wrap: wrap;
+    }
+
+    .stat {
+      text-align: center;
+      padding: 40px 56px;
+      position: relative;
+      flex: 1;
+      min-width: 160px;
+    }
+    .stat + .stat::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 25%; bottom: 25%;
+      width: 1px;
+      background: var(--border-subtle);
+    }
+
+    .stat-value {
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      background: linear-gradient(135deg, #edeef0, #6ee7b7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .stat-label {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    /* ── Scroll reveal ── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity .65s ease, transform .65s ease;
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── Features ── */
+    .features {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 96px 24px;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 60px;
+    }
+
+    h2 {
+      font-size: 38px;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      margin-bottom: 14px;
+    }
+
+    .section-sub {
+      font-size: 16px;
+      color: var(--text-secondary);
+      max-width: 480px;
+      margin: 0 auto;
+      line-height: 1.7;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 18px;
+    }
+
+    .feature-card {
+      background: var(--bg-element);
+      border: 1px solid var(--border-default);
+      border-radius: 16px;
+      padding: 30px 26px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color .3s, box-shadow .3s, transform .3s;
+      cursor: default;
+    }
+    .feature-card:hover {
+      border-color: rgba(16,185,129,0.5);
+      box-shadow: 0 0 0 1px rgba(16,185,129,0.15), 0 16px 40px rgba(0,0,0,0.4);
+      transform: translateY(-4px);
+    }
+
+    /* Hover spotlight effect */
+    .feature-card::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(16,185,129,0.08) 0%, transparent 60%);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .3s;
+    }
+    .feature-card:hover::after { opacity: 1; }
+
+    .feature-card::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 55%);
+      pointer-events: none;
+      border-radius: inherit;
+    }
+
+    .feature-icon {
+      font-size: 30px;
+      margin-bottom: 18px;
+      display: block;
+      filter: drop-shadow(0 0 8px rgba(16,185,129,0.3));
+    }
+
+    h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      letter-spacing: -0.01em;
+    }
+
+    .feature-card p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+
+    /* ── How it works ── */
+    .how-it-works {
+      background: rgba(24,25,27,0.5);
+      border-top: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 96px 24px;
+    }
+
+    .steps {
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .step {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+      padding: 28px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background .2s;
+    }
+    .step:last-child { border-bottom: none; }
+
+    .step-num {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), #34d399);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+      box-shadow: 0 0 16px rgba(16,185,129,0.35);
+      transition: box-shadow .3s, transform .3s;
+    }
+    .step:hover .step-num {
+      box-shadow: 0 0 28px rgba(16,185,129,0.6);
+      transform: scale(1.08);
+    }
+
+    .step-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+    }
+
+    .step p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+
+    /* ── CTA section ── */
+    .cta-section {
+      text-align: center;
+      padding: 108px 24px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .cta-section h2 {
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #edeef0 0%, #a7f3d0 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .cta-section p {
+      font-size: 16px;
+      color: var(--text-secondary);
+      margin-bottom: 40px;
+      line-height: 1.7;
+    }
+
+    .cta-btn-wrap {
+      display: inline-block;
+      position: relative;
+    }
+    .cta-btn-wrap::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(16,185,129,0.8), rgba(52,211,153,0.5), rgba(0,162,199,0.4));
+      filter: blur(12px);
+      animation: cta-glow 2.5s ease-in-out infinite;
+      z-index: -1;
+    }
+    @keyframes cta-glow {
+      0%,100% { opacity: 0.6; transform: scale(1); }
+      50%      { opacity: 1;   transform: scale(1.04); }
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border-subtle);
+      padding: 28px 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      background: rgba(17,17,19,0.6);
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .footer-note {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar       { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- Background orbs -->
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<!-- ── Nav ── -->
+<nav>
+  <div class="nav-brand">
+    <div class="nav-icon">📡</div>
+    Whytea
+  </div>
+  <div class="nav-links">
+    <a href="/login"><button class="btn btn-ghost">Log in</button></a>
+    <a href="/login"><button class="btn btn-primary">Get started free</button></a>
+  </div>
+</nav>
+
+<!-- ── Hero ── -->
+<section class="hero">
+  <div class="hero-badge"><span class="dot"></span>AI-Powered · Real-Time · No Quota Limits</div>
+  <h1>Understand Your YouTube<br>Live Chat Instantly</h1>
+  <p>
+    Whytea analyzes your YouTube live stream audience in real time — mood scores,
+    key themes, and sentiment summaries powered by AI, updated every 30 seconds.
+  </p>
+  <div class="hero-cta">
+    <a href="/login">
+      <button class="btn btn-primary btn-primary-lg">Start for free</button>
+    </a>
+    <a href="#features"><button class="btn btn-ghost">See features</button></a>
+  </div>
+</section>
+
+<!-- ── Stats ── -->
+<div class="stats">
+  <div class="stat reveal">
+    <div class="stat-value" data-count="30" data-suffix="s">30s</div>
+    <div class="stat-label">Analysis refresh interval</div>
+  </div>
+  <div class="stat reveal">
+    <div class="stat-value" data-count="3">3</div>
+    <div class="stat-label">Supported languages</div>
+  </div>
+  <div class="stat reveal">
+    <div class="stat-value" data-count="0">0</div>
+    <div class="stat-label">API quota limits</div>
+  </div>
+  <div class="stat reveal">
+    <div class="stat-value" data-count="100">100</div>
+    <div class="stat-label">Mood score scale</div>
+  </div>
+</div>
+
+<!-- ── Features ── -->
+<section class="features" id="features">
+  <div class="section-header reveal">
+    <h2>Everything you need to read your audience</h2>
+    <p class="section-sub">
+      Purpose-built for streamers and community managers who want to understand
+      their live chat without reading every message.
+    </p>
+  </div>
+
+  <div class="feature-grid">
+    <div class="feature-card reveal">
+      <span class="feature-icon">📊</span>
+      <h3>Real-Time Mood Score</h3>
+      <p>A live 0–100 mood gauge tracks your audience sentiment as the stream progresses. Spot hype moments, controversial topics, and audience drops at a glance.</p>
+    </div>
+    <div class="feature-card reveal">
+      <span class="feature-icon">🏷️</span>
+      <h3>Key Theme Detection</h3>
+      <p>The AI extracts 3–7 key topics your audience is talking about in each window, so you always know what's driving conversation in your chat.</p>
+    </div>
+    <div class="feature-card reveal">
+      <span class="feature-icon">💬</span>
+      <h3>Highlight Extraction</h3>
+      <p>Notable comments and Super Chats are automatically surfaced so you never miss an important message in a fast-moving chat.</p>
+    </div>
+    <div class="feature-card reveal">
+      <span class="feature-icon">🌏</span>
+      <h3>Multilingual Analysis</h3>
+      <p>Switch analysis output between English, 中文, and 日本語 with one click — useful for international streams with mixed-language chats.</p>
+    </div>
+    <div class="feature-card reveal">
+      <span class="feature-icon">⚡</span>
+      <h3>No Quota Limits</h3>
+      <p>Unlike YouTube's official API, Whytea has no daily quota ceiling. Monitor any stream for as long as you need without hitting rate limits.</p>
+    </div>
+    <div class="feature-card reveal">
+      <span class="feature-icon">👥</span>
+      <h3>Multi-User Support</h3>
+      <p>Each user gets their own independent monitoring session. Multiple streamers or analysts can use the tool simultaneously without interfering.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── How it works ── -->
+<section class="how-it-works">
+  <div class="section-header reveal">
+    <h2>How it works</h2>
+    <p class="section-sub">Up and running in under a minute.</p>
+  </div>
+
+  <div class="steps">
+    <div class="step reveal">
+      <div class="step-num">1</div>
+      <div>
+        <div class="step-title">Paste your YouTube live stream URL</div>
+        <p>Any YouTube live stream URL or video ID works. Whytea verifies the stream is active before starting.</p>
+      </div>
+    </div>
+    <div class="step reveal">
+      <div class="step-num">2</div>
+      <div>
+        <div class="step-title">Whytea starts reading live chat</div>
+        <p>Comments flow in through your live chat feed in real time. Super Chats are highlighted separately so they're never buried.</p>
+      </div>
+    </div>
+    <div class="step reveal">
+      <div class="step-num">3</div>
+      <div>
+        <div class="step-title">AI analysis refreshes every 30 seconds</div>
+        <p>Every 30 seconds, an AI model analyzes the latest batch of comments and updates your mood score, themes, highlights, and summary.</p>
+      </div>
+    </div>
+    <div class="step reveal">
+      <div class="step-num">4</div>
+      <div>
+        <div class="step-title">Switch language anytime</div>
+        <p>Click EN, 中文, or 日本語 to re-run the analysis and read the summary in your preferred language — no need to restart the session.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ── -->
+<section class="cta-section reveal">
+  <h2>Start analyzing your stream today</h2>
+  <p>Free to use. No credit card required.<br>Works with any public YouTube live stream.</p>
+  <div class="cta-btn-wrap">
+    <a href="/login">
+      <button class="btn btn-primary" style="padding:14px 40px;font-size:15px;">Create a free account</button>
+    </a>
+  </div>
+</section>
+
+<!-- ── Footer ── -->
+<footer>
+  <div class="footer-brand">
+    <div class="nav-icon" style="width:24px;height:24px;font-size:11px;border-radius:6px;">📡</div>
+    Whytea
+  </div>
+  <span class="footer-note">Real-time YouTube live chat sentiment analysis powered by AI</span>
+</footer>
+
+<script>
+  if (localStorage.getItem("token")) location.href = "/app";
+
+  // ── Scroll reveal ──────────────────────────────────────────────────────────
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry, i) => {
+      if (entry.isIntersecting) {
+        // Stagger siblings inside the same parent
+        const siblings = [...entry.target.parentElement.querySelectorAll('.reveal:not(.visible)')];
+        const idx = siblings.indexOf(entry.target);
+        entry.target.style.transitionDelay = `${idx * 0.08}s`;
+        entry.target.classList.add('visible');
+        revealObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12 });
+
+  document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+  // ── Count-up for stats ─────────────────────────────────────────────────────
+  const countObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const el = entry.target.querySelector('.stat-value');
+      if (!el || el.dataset.animated) return;
+      el.dataset.animated = '1';
+
+      const target = parseInt(el.dataset.count, 10);
+      const suffix = el.dataset.suffix || '';
+      if (target === 0) { el.textContent = '0' + suffix; return; }
+
+      const duration = 1200;
+      const start = performance.now();
+      const tick = (now) => {
+        const p = Math.min((now - start) / duration, 1);
+        const ease = 1 - Math.pow(1 - p, 3); // ease-out cubic
+        el.textContent = Math.round(ease * target) + suffix;
+        if (p < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+      countObserver.unobserve(entry.target);
+    });
+  }, { threshold: 0.5 });
+
+  document.querySelectorAll('.stat').forEach(el => countObserver.observe(el));
+
+  // ── Feature card spotlight (mouse-follow glow) ─────────────────────────────
+  document.querySelectorAll('.feature-card').forEach(card => {
+    card.addEventListener('mousemove', e => {
+      const r = card.getBoundingClientRect();
+      card.style.setProperty('--mx', `${e.clientX - r.left}px`);
+      card.style.setProperty('--my', `${e.clientY - r.top}px`);
+    });
+  });
+</script>
+
+</body>
+</html>

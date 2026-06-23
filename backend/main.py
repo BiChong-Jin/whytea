@@ -153,7 +153,7 @@ async def lifespan(app: FastAPI):
     logger.info("StreamPulse shutdown complete")
 
 
-app = FastAPI(title="Stream Audience Analyzer", lifespan=lifespan)
+app = FastAPI(title="Whytea Comments Analyzer", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -231,6 +231,12 @@ def get_current_user(
 
 
 @app.get("/", response_class=HTMLResponse)
+async def landing():
+    html_path = Path(__file__).parent.parent / "frontend" / "landing.html"
+    return HTMLResponse(html_path.read_text())
+
+
+@app.get("/app", response_class=HTMLResponse)
 async def index():
     html_path = Path(__file__).parent.parent / "frontend" / "index.html"
     return HTMLResponse(html_path.read_text())

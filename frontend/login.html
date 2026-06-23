@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>StreamPulse — Login</title>
+  <title>Whytea — Log In</title>
+  <meta name="description" content="Log in to Whytea and start analyzing your YouTube live stream audience sentiment in real time." />
+  <meta name="robots" content="noindex" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -20,8 +22,8 @@
       --text-primary:   #edeef0;
       --text-secondary: #b0b4ba;
       --text-muted:     #696e77;
-      --accent:         #6e56cf;
-      --accent-glow:    rgba(110,86,207,0.25);
+      --accent:         #10b981;
+      --accent-glow:    rgba(16,185,129,0.25);
       --red:            #e5484d;
       --font-sans:      'Inter', -apple-system, sans-serif;
     }
@@ -32,7 +34,7 @@
       background: var(--bg-base);
       color: var(--text-primary);
       background-image:
-        radial-gradient(ellipse 70% 60% at 50% 0%, rgba(110,86,207,0.12) 0%, transparent 65%),
+        radial-gradient(ellipse 70% 60% at 50% 0%, rgba(16,185,129,0.12) 0%, transparent 65%),
         radial-gradient(ellipse 50% 40% at 90% 100%, rgba(0,162,199,0.07) 0%, transparent 55%);
     }
 
@@ -55,11 +57,11 @@
 
     .brand-icon {
       width: 36px; height: 36px;
-      background: linear-gradient(135deg, var(--accent), #9b7df8);
+      background: linear-gradient(135deg, var(--accent), #34d399);
       border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
       font-size: 18px;
-      box-shadow: 0 0 24px rgba(110,86,207,0.35);
+      box-shadow: 0 0 24px rgba(16,185,129,0.35);
     }
 
     .brand-name {
@@ -88,7 +90,7 @@
       position: absolute;
       top: 0; left: 0; right: 0;
       height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(110,86,207,0.6), transparent);
+      background: linear-gradient(90deg, transparent, rgba(16,185,129,0.6), transparent);
     }
 
     /* Inner highlight */
@@ -96,7 +98,7 @@
       content: '';
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 60%;
-      background: linear-gradient(180deg, rgba(110,86,207,0.04) 0%, transparent 100%);
+      background: linear-gradient(180deg, rgba(16,185,129,0.04) 0%, transparent 100%);
       pointer-events: none;
     }
 
@@ -184,9 +186,9 @@
       cursor: pointer;
       margin-top: 4px;
       transition: opacity .15s, transform .1s, box-shadow .15s;
-      box-shadow: 0 4px 16px rgba(110,86,207,0.4);
+      box-shadow: 0 4px 16px rgba(16,185,129,0.4);
     }
-    .submit-btn:hover  { opacity: .9; box-shadow: 0 6px 20px rgba(110,86,207,0.5); }
+    .submit-btn:hover  { opacity: .9; box-shadow: 0 6px 20px rgba(16,185,129,0.5); }
     .submit-btn:active { transform: scale(.98); }
     .submit-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 
@@ -210,7 +212,7 @@
 
   <div class="brand">
     <div class="brand-icon">📡</div>
-    <span class="brand-name">StreamPulse</span>
+    <span class="brand-name">Whytea</span>
   </div>
 
   <div class="card">
@@ -236,12 +238,12 @@
     </form>
   </div>
 
-  <p class="footer-note">Real-time YouTube audience sentiment analysis<br>powered by Claude AI</p>
+  <p class="footer-note">Real-time YouTube audience sentiment analysis<br>powered by AI</p>
 
 <script>
   let currentTab = "login";
 
-  if (localStorage.getItem("token")) location.href = "/";
+  if (localStorage.getItem("token")) location.href = "/app";
 
   function switchTab(tab) {
     currentTab = tab;
@@ -290,7 +292,7 @@
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Login failed");
     localStorage.setItem("token", data.access_token);
-    location.href = "/";
+    location.href = "/app";
   }
 </script>
 </body>

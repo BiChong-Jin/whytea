@@ -4,11 +4,11 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     youtube_api_key: str
-    anthropic_api_key: str
+    deepseek_api_key: str
     poll_interval_seconds: int = 5
     analysis_interval_seconds: int = 30
     max_comments_per_batch: int = 200
-    claude_model: str = "claude-haiku-4-5-20251001"
+    analysis_model: str = "deepseek-chat"
     jwt_secret_key: str
     jwt_token_expire_hours: int = 24
     # Comma-separated origins, e.g. "https://app.example.com,https://www.example.com"

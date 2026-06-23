@@ -2,8 +2,7 @@ import asyncio
 from datetime import datetime, timezone
 
 from json_repair import repair_json
-
-import anthropic
+from openai import AsyncOpenAI
 
 from .config import settings
 from .models import AnalysisResult, ChatComment
@@ -35,7 +34,10 @@ class ChatAnalyzer:
     def __init__(self) -> None:
         self._buffer: list[ChatComment] = []
         self._lock = asyncio.Lock()
-        self._client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+        self._client = AsyncOpenAI(
+            api_key=settings.deepseek_api_key,
+            base_url="https://api.deepseek.com",
+        )
 
     async def add_comments(self, comments: list[ChatComment]) -> None:
         async with self._lock:
@@ -52,7 +54,7 @@ class ChatAnalyzer:
         if not batch:
             return None
 
-        return await self._call_claude(batch, window_start, window_end, language)
+        return await self._call_model(batch, window_start, window_end, language)
 
     async def reanalyze(self, window_start: datetime, window_end: datetime, language: str) -> AnalysisResult | None:
         """Re-run analysis on the current buffer with a different language."""
@@ -62,9 +64,9 @@ class ChatAnalyzer:
         if not batch:
             return None
 
-        return await self._call_claude(batch, window_start, window_end, language)
+        return await self._call_model(batch, window_start, window_end, language)
 
-    async def _call_claude(self, batch: list[ChatComment], window_start: datetime, window_end: datetime, language: str = "en") -> AnalysisResult | None:
+    async def _call_model(self, batch: list[ChatComment], window_start: datetime, window_end: datetime, language: str = "en") -> AnalysisResult | None:
         lang_name = LANGUAGES.get(language, "English")
         formatted = _format_comments(batch)
         user_prompt = f"""\
@@ -87,17 +89,17 @@ Return a JSON object with exactly these fields:
 }}
 """
         try:
-            response = await self._client.messages.create(
-                model=settings.claude_model,
+            response = await self._client.chat.completions.create(
+                model=settings.analysis_model,
                 max_tokens=1024,
-                system=SYSTEM_PROMPT,
                 messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt},
                     {"role": "assistant", "content": "{"},
                 ],
                 timeout=30.0,
             )
-            raw = "{" + response.content[0].text.strip()
+            raw = "{" + response.choices[0].message.content.strip()
             data = repair_json(raw, return_objects=True)
             return AnalysisResult(
                 overall_sentiment=data["overall_sentiment"],
@@ -110,4 +112,4 @@ Return a JSON object with exactly these fields:
                 window_end=window_end,
             )
         except Exception as exc:
-            raise RuntimeError(f"Claude analysis failed: {exc}") from exc
+            raise RuntimeError(f"Analysis failed: {exc}") from exc

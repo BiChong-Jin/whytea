@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Stream Audience Analyzer</title>
+  <title>Whytea — Dashboard</title>
+  <meta name="description" content="Whytea real-time YouTube live chat sentiment dashboard." />
+  <meta name="robots" content="noindex" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -21,9 +23,9 @@
       --text-primary:   #edeef0;
       --text-secondary: #b0b4ba;
       --text-muted:     #696e77;
-      --accent:         #6e56cf;
-      --accent-glow:    rgba(110,86,207,0.2);
-      --accent-soft:    #291f43;
+      --accent:         #10b981;
+      --accent-glow:    rgba(16,185,129,0.2);
+      --accent-soft:    #064e3b;
       --red:            #e5484d;
       --red-soft:       #500f1c;
       --green:          #30a46c;
@@ -48,7 +50,7 @@
       grid-template-rows: 56px 1fr;
       overflow: hidden;
       background-image:
-        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(110,86,207,0.10) 0%, transparent 70%),
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(16,185,129,0.10) 0%, transparent 70%),
         radial-gradient(ellipse 40% 40% at 85% 90%, rgba(0,162,199,0.06) 0%, transparent 60%);
     }
 
@@ -75,7 +77,7 @@
 
     .logo-icon {
       width: 28px; height: 28px;
-      background: linear-gradient(135deg, var(--accent), #9b7df8);
+      background: linear-gradient(135deg, var(--accent), #34d399);
       border-radius: 8px;
       display: flex; align-items: center; justify-content: center;
       font-size: 14px;
@@ -173,7 +175,7 @@
     .user-avatar {
       width: 30px; height: 30px;
       border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent), #9b7df8);
+      background: linear-gradient(135deg, var(--accent), #34d399);
       display: flex; align-items: center; justify-content: center;
       font-size: 12px; font-weight: 700;
       color: #fff;
@@ -237,7 +239,7 @@
 
     .kpi-card.accent-violet {
       background: linear-gradient(135deg, var(--accent-soft) 0%, var(--bg-element) 65%);
-      border-color: rgba(110,86,207,0.3);
+      border-color: rgba(16,185,129,0.3);
     }
     .kpi-card.accent-green {
       background: linear-gradient(135deg, var(--green-soft) 0%, var(--bg-element) 65%);
@@ -305,7 +307,7 @@
       content: '';
       position: absolute; top: 0; left: 0; right: 0;
       height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(110,86,207,0.5), transparent);
+      background: linear-gradient(90deg, transparent, rgba(16,185,129,0.5), transparent);
     }
 
     #gauge-svg { width: 160px; height: 90px; flex-shrink: 0; }
@@ -405,7 +407,7 @@
     }
     .theme-pill:hover {
       background: var(--accent-soft);
-      border-color: rgba(110,86,207,0.4);
+      border-color: rgba(16,185,129,0.4);
       color: #c4b5fd;
     }
 
@@ -600,7 +602,7 @@
 <header>
   <div class="logo">
     <div class="logo-icon">📡</div>
-    <span class="logo-text">StreamPulse</span>
+    <span class="logo-text">Whytea</span>
   </div>
   <div class="header-divider"></div>
   <input id="url-input" type="text" placeholder="Paste YouTube live URL or video ID…" />

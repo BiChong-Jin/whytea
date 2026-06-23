@@ -9,3 +9,5 @@ venv/
 *.db
 .claude/
 claude_interaction_note.md
+claude_session_id.txt
+
