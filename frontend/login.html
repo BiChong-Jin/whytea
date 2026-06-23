@@ -271,7 +271,7 @@
           body: JSON.stringify({ user_name: username, user_password: password }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Registration failed");
+        if (!res.ok) throw new Error(extractErrorMessage(data, "Registration failed"));
         await doLogin(username, password);
       } else {
         await doLogin(username, password);
@@ -290,9 +290,18 @@
       body: JSON.stringify({ user_name: username, user_password: password }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Login failed");
+    if (!res.ok) throw new Error(extractErrorMessage(data, "Login failed"));
     localStorage.setItem("token", data.access_token);
     location.href = "/app";
+  }
+
+  // FastAPI validation errors (422) return `detail` as a list of error
+  // objects rather than a string; flatten those into a readable message.
+  function extractErrorMessage(data, fallback) {
+    if (Array.isArray(data.detail)) {
+      return data.detail.map((e) => e.msg).join("; ");
+    }
+    return data.detail || fallback;
   }
 </script>
 </body>
