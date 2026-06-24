@@ -297,12 +297,14 @@ async def start_monitoring(body: StartRequest, current_user=Depends(get_current_
         raise HTTPException(status_code=400, detail=str(e))
 
     try:
-        await resolve_live_chat_id(video_id, settings.youtube_api_key)
+        live_chat_id = await resolve_live_chat_id(video_id, settings.youtube_api_key)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except QuotaExceededError as e:
+        raise HTTPException(status_code=429, detail=str(e))
 
     analyzer = ChatAnalyzer()
-    poller = YouTubeChatPoller(video_id)
+    poller = YouTubeChatPoller(live_chat_id, settings.youtube_api_key)
     session = UserSession(tasks=[], analyzer=analyzer, poller=poller)
     session.tasks.append(asyncio.create_task(polling_loop(poller, user_id, analyzer)))
     session.tasks.append(asyncio.create_task(analysis_loop(settings.analysis_interval_seconds, user_id, analyzer)))

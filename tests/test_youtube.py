@@ -1,6 +1,6 @@
 import pytest
 
-from backend.youtube import _parse_message, _run_to_text, extract_video_id
+from backend.youtube import _parse_message, extract_video_id
 
 
 @pytest.mark.parametrize(
@@ -21,46 +21,18 @@ def test_extract_video_id_rejects_unparseable_input():
         extract_video_id("not a youtube url at all")
 
 
-def test_run_to_text_plain_text_run():
-    assert _run_to_text({"text": "hello world"}) == "hello world"
-
-
-def test_run_to_text_standard_unicode_emoji():
-    run = {"emoji": {"emojiId": "\U0001F602", "isCustomEmoji": False}}
-    assert _run_to_text(run) == "\U0001F602"
-
-
-def test_run_to_text_custom_emoji_uses_shortcut():
-    run = {
-        "emoji": {
-            "emojiId": "custom-id",
-            "isCustomEmoji": True,
-            "shortcuts": [":channel-emote:"],
-        }
-    }
-    assert _run_to_text(run) == ":channel-emote:"
-
-
-def test_run_to_text_custom_emoji_falls_back_to_accessibility_label():
-    run = {
-        "emoji": {
-            "emojiId": "custom-id",
-            "isCustomEmoji": True,
-            "shortcuts": [],
-            "image": {"accessibility": {"accessibilityData": {"label": "PogChamp"}}},
-        }
-    }
-    assert _run_to_text(run) == ":PogChamp:"
-
-
 def test_parse_message_builds_chat_comment():
-    renderer = {
+    item = {
         "id": "msg-1",
-        "authorName": {"simpleText": "Alice"},
-        "message": {"runs": [{"text": "gg "}, {"text": "well played"}]},
-        "timestampUsec": "1700000000000000",
+        "snippet": {
+            "type": "textMessageEvent",
+            "hasDisplayContent": True,
+            "displayMessage": "gg well played",
+            "publishedAt": "2023-11-14T22:13:20Z",
+        },
+        "authorDetails": {"displayName": "Alice"},
     }
-    comment = _parse_message(renderer, is_super_chat=False)
+    comment = _parse_message(item)
     assert comment is not None
     assert comment.author == "Alice"
     assert comment.message == "gg well played"
@@ -68,22 +40,39 @@ def test_parse_message_builds_chat_comment():
 
 
 def test_parse_message_returns_none_for_empty_message():
-    renderer = {
+    item = {
         "id": "msg-2",
-        "authorName": {"simpleText": "Bob"},
-        "message": {"runs": []},
+        "snippet": {"type": "textMessageEvent", "hasDisplayContent": True, "displayMessage": ""},
+        "authorDetails": {"displayName": "Bob"},
     }
-    assert _parse_message(renderer, is_super_chat=False) is None
+    assert _parse_message(item) is None
+
+
+def test_parse_message_returns_none_when_no_display_content():
+    item = {
+        "id": "msg-2b",
+        "snippet": {"type": "textMessageEvent", "hasDisplayContent": False, "displayMessage": "hidden"},
+        "authorDetails": {"displayName": "Bob"},
+    }
+    assert _parse_message(item) is None
 
 
 def test_parse_message_captures_super_chat_amount():
-    renderer = {
+    item = {
         "id": "msg-3",
-        "authorName": {"simpleText": "BigSpender"},
-        "message": {"runs": [{"text": "take my money"}]},
-        "purchaseAmountText": {"simpleText": "$50.00"},
+        "snippet": {
+            "type": "superChatEvent",
+            "hasDisplayContent": True,
+            "displayMessage": "take my money",
+            "superChatDetails": {"amountDisplayString": "$50.00"},
+        },
+        "authorDetails": {"displayName": "BigSpender"},
     }
-    comment = _parse_message(renderer, is_super_chat=True)
+    comment = _parse_message(item)
     assert comment is not None
     assert comment.is_super_chat is True
     assert comment.super_chat_amount == "$50.00"
+
+
+def test_parse_message_returns_none_for_malformed_item():
+    assert _parse_message({"snippet": None}) is None
