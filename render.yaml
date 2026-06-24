@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: whytea
+    env: python
+    plan: starter # disks require a paid plan; not available on "free"
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    disk:
+      name: whytea-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: DATABASE_URL
+        value: sqlite:////var/data/users.db
+      - key: POLL_INTERVAL_SECONDS
+        value: "5"
+      - key: ANALYSIS_INTERVAL_SECONDS
+        value: "30"
+      - key: MAX_COMMENTS_PER_BATCH
+        value: "200"
+      - key: ANALYSIS_MODEL
+        value: deepseek-chat
+      - key: JWT_TOKEN_EXPIRE_HOURS
+        value: "24"

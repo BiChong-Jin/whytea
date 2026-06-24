@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     jwt_token_expire_hours: int = 24
     # Comma-separated origins, e.g. "https://app.example.com,https://www.example.com"
     cors_origins: str = "*"
+    # SQLAlchemy URL. Override to point at a persistent disk mount, e.g.
+    # "sqlite:////var/data/users.db" (note the 4 slashes for an absolute path).
+    database_url: str = "sqlite:///./users.db"
 
     @field_validator("jwt_secret_key")
     @classmethod
