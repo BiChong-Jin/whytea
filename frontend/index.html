@@ -755,7 +755,8 @@
 
   function connect() {
     if (ws && ws.readyState === WebSocket.OPEN) return;
-    ws = new WebSocket(`ws://${location.host}/ws?token=${encodeURIComponent(token)}`);
+    const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
+    ws = new WebSocket(`${wsProtocol}//${location.host}/ws?token=${encodeURIComponent(token)}`);
     ws.onopen    = () => console.log("[ws] connected");
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
